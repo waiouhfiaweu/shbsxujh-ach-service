@@ -1,0 +1,303 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  SAM Template for batch in ACH Service
+
+Parameters:
+  Organization:
+    Type: String
+    Description: "Identificador del dueño componente."
+  SecurityGroupACH:
+    Description: Security Group Backend Private
+    Type: String
+  Package:
+    Type: String
+    Description: "Identificador del paquete de productos comerciales al que se asocia el componente."
+  Version:
+    Type: String
+    Default: "1.0.0"
+    Description: "Versión del módulo o microservicio al que pertenece el componente."
+  EnvironmentType:
+    Type: String
+    AllowedValues: [PRODUCTION, QUALITY, STAGING, DEVELOPMENT]
+    ConstraintDescription: must specify PRODUCTION, STAGING, QUALITY or DEVELOPMENT.
+  TenantId:
+    Type: String
+    Description: "Identificador del tenant."
+  Project:
+    Type: String
+    Description: "Identificador del proyecto por el que se crea el componente."
+  ProcessingType:
+    Type: String
+    Description: "Tipo de procesamiento."
+  AwsAccountIdToDeploy:
+    Type: String
+    Description: Identificador de la cuenta AWS donde se desplegará el microservicio.
+  RegionToDeploy:
+    Type: String
+    AllowedValues: [us-east-2, us-west-2, us-east-1]
+    ConstraintDescription: must specify us-east-2,us-west-2,us-east-1.
+    Description: Región en la cual se realizará el despliegue del microservicio.
+  EnvironmentId:
+    Type: String
+    Description: "Identificador del ambiente."
+  Module:
+    Type: String
+    Description: "Nombre del módulo o microservicio."
+  ModuleNameInLowerCase:
+    Type: String
+    Description: "Nombre del módulo o microservicio en minusculas."
+  MicroserviceAuthenticationSecretArn:
+    Type: String
+    Description: "Arn del secreto de autenticacion"
+  SecurityGroupIds:
+    Type: String
+    Description: "Identificador del security group donde se ejecutará la lógica de negocio del microservicio."
+  SubnetIds:
+    Type: CommaDelimitedList
+    Description: "Identificador de las subnets donde se ejecutará la lógica de negocio del microservicio (Deben estar entre comillas dobles y separadas por comas)."
+  LoadBalancerUrl:
+    Type: String
+    Description: "Url del balanceador donde se encuentra"
+  microServicePort:
+    Type: String
+    Description: "Url del balanceador donde se encuentra"
+  BatchProcessingPath:
+    Type: String
+    Description: "Path del servicio rest de procesamiento"
+  LambdaProcessingLogLevel:
+    Type: String
+    Description: "Nivel de log del lambda de procesamiento" 
+  LogRetentionDays:
+    Type: Number
+    Description: "Batch processing days retention"   
+
+Resources:
+
+  # Log to write event data
+  BatchProcessingLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/events/ach-batch-processing-event
+      RetentionInDays: !Ref LogRetentionDays
+      Tags:
+        - Key: "ORGANIZATION"
+          Value: !Ref Organization
+        - Key: "PACKAGE"
+          Value: !Ref Package
+        - Key: "VERSION"
+          Value: !Ref Version
+        - Key: "ENVIRONMENT_TYPE"
+          Value: !Ref EnvironmentType
+        - Key: "ENVIRONMENT_ID"
+          Value: !Ref EnvironmentId
+        - Key: "TENANT_ID"
+          Value: !Ref TenantId
+        - Key: "PROJECT"
+          Value: !Ref Project
+        - Key: "MODULE"
+          Value: !Ref Module
+        - Key: "PROCESSING_TYPE"
+          Value: "BATCH"
+
+  # Lambda activated by event that makes rest calls
+  BatchProcesesingRestCallerLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Join
+        - ""
+        - - !Ref EnvironmentId
+          - "-ach-lambda-batch-processing-caller"
+      Handler: com.cobiscorp.ecobis.ach.processing.lambda.HandlerExecuteBatchProcessingEvent::handleRequest
+      Role: !GetAtt BatchProcesesingRestCallerLambdaRole.Arn
+      Timeout: 25
+      Architectures:
+        - arm64
+      MemorySize: 512
+      CodeUri: bis-ach-service-microservice/target/cobis-ach-processing-call-service-lambda.jar
+      Runtime: java11
+      Tracing: Active
+      VpcConfig:
+        # SecurityGroupIds: 
+        # - !Ref "SecurityGroupACH"
+        SecurityGroupIds: [ !Ref SecurityGroupIds ]
+        SubnetIds: !Ref SubnetIds
+      Environment:
+        Variables:
+          LOG_LEVEL: !Ref LambdaProcessingLogLevel
+          LOAD_BALANCER_URL: !Ref LoadBalancerUrl
+          LOAD_BALANCER_PORT: !Ref microServicePort
+          MICROSERVICE_AUTHENTICATION_SECRET_ARN: !Ref MicroserviceAuthenticationSecretArn
+          PROCESSING_PATH: !Ref BatchProcessingPath
+          REGION: !Ref RegionToDeploy
+      Tags:
+        ORGANIZATION: !Ref Organization
+        PACKAGE: !Ref Package
+        VERSION: !Ref Version
+        ENVIRONMENT_TYPE: !Ref EnvironmentType
+        ENVIRONMENT_ID: !Ref EnvironmentId
+        TENANT_ID: !Ref TenantId
+        PROJECT: !Ref Project
+        MODULE: !Ref Module
+        PROCESSING_TYPE: !Ref ProcessingType
+
+  BatchProcesesingRestCallerLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: "AllowLogging"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Join
+                  - ""
+                  - - "arn:aws:logs:us-east-1:"
+                    - !Ref AwsAccountIdToDeploy
+                    - ":log-group:/aws/lambda/"
+                    - !Ref EnvironmentId
+                    - "-AchExecutor:*"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess"
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+        - "arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess"
+        - "arn:aws:iam::aws:policy/SecretsManagerReadWrite"
+      Tags:
+        - Key: "ORGANIZATION"
+          Value: !Ref Organization
+        - Key: "PACKAGE"
+          Value: !Ref Package
+        - Key: "VERSION"
+          Value: !Ref Version
+        - Key: "ENVIRONMENT_TYPE"
+          Value: !Ref EnvironmentType
+        - Key: "ENVIRONMENT_ID"
+          Value: !Ref EnvironmentId
+        - Key: "TENANT_ID"
+          Value: !Ref TenantId
+        - Key: "PROJECT"
+          Value: !Ref Project
+        - Key: "MODULE"
+          Value: !Ref Module
+        - Key: "PROCESSING_TYPE"
+          Value: "BATCH"
+
+  BatchProcesesingRestCallerLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${BatchProcesesingRestCallerLambda}
+      RetentionInDays: !Ref LogRetentionDays
+      Tags:
+        - Key: "ORGANIZATION"
+          Value: !Ref Organization
+        - Key: "PACKAGE"
+          Value: !Ref Package
+        - Key: "VERSION"
+          Value: !Ref Version
+        - Key: "ENVIRONMENT_TYPE"
+          Value: !Ref EnvironmentType
+        - Key: "ENVIRONMENT_ID"
+          Value: !Ref EnvironmentId
+        - Key: "TENANT_ID"
+          Value: !Ref TenantId
+        - Key: "PROJECT"
+          Value: !Ref Project
+        - Key: "MODULE"
+          Value: !Ref Module
+        - Key: "PROCESSING_TYPE"
+          Value: "BATCH"
+      
+  BatchProcessingEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Event rule to make ach batch process
+      EventPattern:
+        id:
+          - {"exists":true}
+        source:
+          - cobis.ach
+        detail-type:
+          - COBIS ACH Call via Rest
+        detail:
+          eventSource:
+            - "ach.batch.processing"
+          eventName:
+            - "ExecuteBatchProcessing"
+          originalFileId:
+            - {"exists":true}
+          fileId:
+            - {"exists":true}
+          requestId:
+            - {"exists":true}
+          token:
+            - {"exists":true}
+      RoleArn: !GetAtt BatchProcessingEventRuleRole.Arn
+      Name: !Sub "${EnvironmentId}-${Module}-batch-processing-event-rule"
+      Targets:
+        - Id: BatchProcessingLogTarget
+          Arn: !GetAtt BatchProcessingLogGroup.Arn
+        - Id: BatchProcesesingRestCallerLambdaTarget
+          Arn: !GetAtt BatchProcesesingRestCallerLambda.Arn
+          RetryPolicy:
+            MaximumEventAgeInSeconds: 60
+            MaximumRetryAttempts: 3
+
+  BatchProcessingEventRuleRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: 'sts:AssumeRole'
+      Policies:
+        - PolicyName: "AllowLogging"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !GetAtt BatchProcessingLogGroup.Arn
+      Tags:
+        - Key: "ORGANIZATION"
+          Value: !Ref Organization
+        - Key: "PACKAGE"
+          Value: !Ref Package
+        - Key: "VERSION"
+          Value: !Ref Version
+        - Key: "ENVIRONMENT_TYPE"
+          Value: !Ref EnvironmentType
+        - Key: "ENVIRONMENT_ID"
+          Value: !Ref EnvironmentId
+        - Key: "TENANT_ID"
+          Value: !Ref TenantId
+        - Key: "PROJECT"
+          Value: !Ref Project
+        - Key: "MODULE"
+          Value: !Ref Module
+        - Key: "PROCESSING_TYPE"
+          Value: "BATCH"
+
+  BatchProcessingLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt BatchProcesesingRestCallerLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt BatchProcessingEventRule.Arn

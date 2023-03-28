@@ -1,0 +1,1230 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  SAM Template for ACH Service process out for Jobs
+
+Parameters:
+  AchOutProcessingLambdaConfiguration:
+    Description: "AchOutProcessingLambdaConfiguration"
+    Type: String
+    Default: "1024:0:0:0:0:0:INFO"
+  SecurityGroupACH:
+    Description: Security Group Backend Private
+    Type: String 
+  RegionToDeploy:
+    Type: String
+    AllowedValues: [us-east-2, us-west-2, us-east-1]
+    ConstraintDescription: must specify us-east-2,us-west-2,us-east-1.
+    Description: Región en la cual se realizará el despliegue del microservicio.
+  Organization:
+    Type: String
+    Description: "Identificador del dueño componente."
+  Package:
+    Type: String
+    Description: "Identificador del paquete de productos comerciales al que se asocia el componente."
+  Project:
+    Type: String
+    Description: "Identificador del proyecto por el que se crea el componente."
+  EnvironmentId:
+    Type: String
+    Description: "Identificador del ambiente."
+  EnvironmentType:
+    Type: String
+    AllowedValues: [PRODUCTION, QUALITY, STAGING, DEVELOPMENT]
+    ConstraintDescription: must specify PRODUCTION, STAGING, QUALITY or DEVELOPMENT.
+  LoadBalancerUrl:
+    Description: Url de balanceador de carga para el Ach Service
+    Type: String
+  MicroserviceAuthenticationSecretArn:
+    Type: String
+    Description: "Arn del secreto de autenticacion"
+  MicroServicePort:
+    Description: Puerto de balanceador de carga para el Ach Service
+    Type: String
+  Module:
+    Type: String
+    Description: "Nombre del módulo o microservicio."
+  ModuleNameInLowerCase:
+    Type: String
+    Description: "Nombre del módulo o microservicio en minusculas."
+  Version:
+    Type: String
+    Default: "1.0.0"
+    Description: "Versión del módulo o microservicio al que pertenece el componente."
+  SecretArn:
+    Type: String
+    Description: "ARN del secreto que contiene los datos de conexion a la base de datos MySQL para el microservicio."
+  TimeZone:
+    Type: String
+    Description: "Identificador de zona horaria."
+  LogLevel:
+    Type: String
+    AllowedValues: [INFO, DEBUG, WARNING, ERROR, TRACE]
+    ConstraintDescription: must specify INFO, DEBUG, WARNING or TRACE.
+    Description: "Nivel de escritura de logs del microservicio: INFO, DEBUG, WARNING, TRACE."
+  OriginPacs004008:
+    Description: "pac de origin para el pac 004-008"
+    Type: String
+    Default: "pacs.008.001.07 - TDIR2"
+  OriginPacs004003:
+    Description: "pac de origin para el pac 004-003"
+    Type: String
+    Default: "pacs.003.001.07"
+  OriginPacs004056:
+    Description: "pac de origin para el pac 004-056"
+    Type: String
+    Default: "camt.056.001.06 - TDIR2"
+  OriginPacs002008:
+    Description: "pac de origin para el pac 002-008"
+    Type: String
+    Default: "pacs.008.001.07 - TDIR2"
+  OriginPacs002003:
+    Description: "pac de origin para el pac 002-003"
+    Type: String
+    Default: "pacs.003.001.07"
+  OriginAcmt023:
+    Description: "pac de origin para el acmt 023"
+    Type: String
+    Default: "acmt.023.001.02 - TDIR1"
+  OriginAcmt022008:
+    Description: "pac de origin para el acmt 022-008"
+    Type: String
+    Default: "pacs.008.001.07 - TDIR2"
+  SECRETMANAGERUSERNAME:
+    Description: Secreto donde se encuentra las credenciales de base de datos
+    Type: String
+  SecurityGroupIds:
+    Type: String
+    Description: "Identificador del security group donde se ejecutará la lógica de negocio del microservicio."
+  SubnetIds:
+    Type: CommaDelimitedList
+    Description: "Identificador de las subnets donde se ejecutará la lógica de negocio del microservicio (Deben estar entre comillas dobles y separadas por comas)."
+  TenantId:
+    Type: String
+    Description: "Identificador del tenant."
+
+Resources:
+
+  ACHOutProcessingQueueOutPacs008:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      VisibilityTimeout: 40
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+
+  ACHOutProcessingQueueOutPacs007:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      VisibilityTimeout: 40
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+
+  ACHOutProcessingQueueOutPacs004008:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      VisibilityTimeout: 40
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+
+  ACHOutProcessingQueueOutPacs004003:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      VisibilityTimeout: 40
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+
+  ACHOutProcessingQueueOutPacs004056:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      VisibilityTimeout: 40
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+
+  ACHOutProcessingQueueOutPacs003:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      VisibilityTimeout: 40
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+
+  ACHOutProcessingQueueOutPacs002008:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      VisibilityTimeout: 40
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete    
+
+  ACHOutProcessingQueueOutPacs002003:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      VisibilityTimeout: 40
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete    
+
+  ACHOutProcessingQueueOutCamt056:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      VisibilityTimeout: 40
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete    
+
+  ACHOutProcessingQueueOutCamt029:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      VisibilityTimeout: 40
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+  
+  ACHOutProcessingQueueOutAcmt024:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      VisibilityTimeout: 40
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+
+  ACHOutProcessingQueueOutAcmt023:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      VisibilityTimeout: 40
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+
+  ACHOutProcessingQueueOutAcmt022008:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      VisibilityTimeout: 40
+      Tags:
+        - Key: "ORGANIZATION"
+          Value: !Ref Organization
+        - Key: "PACKAGE"
+          Value: !Ref Package
+        - Key: "VERSION"
+          Value: !Ref Version
+        - Key: "ENVIRONMENT_TYPE"
+          Value: !Ref EnvironmentType
+        - Key: "ENVIRONMENT_ID"
+          Value: !Ref EnvironmentId
+        - Key: "TENANT_ID"
+          Value: !Ref TenantId
+        - Key: "PROJECT"
+          Value: !Ref Project
+        - Key: "MODULE"
+          Value: !Ref Module
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+
+  LambdaOutEventsProcessorServiceRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: 2012-10-17
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+      Tags:
+        - Key: "ORGANIZATION"
+          Value: !Ref Organization
+        - Key: "PACKAGE"
+          Value: !Ref Package
+        - Key: "VERSION"
+          Value: !Ref Version
+        - Key: "ENVIRONMENT_TYPE"
+          Value: !Ref EnvironmentType
+        - Key: "ENVIRONMENT_ID"
+          Value: !Ref EnvironmentId
+        - Key: "TENANT_ID"
+          Value: !Ref TenantId
+        - Key: "PROJECT"
+          Value: !Ref Project
+        - Key: "MODULE"
+          Value: !Ref Module
+        
+  LambdaOutEventsProcessorServiceRoleDefaultPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - 'sqs:ReceiveMessage'
+              - 'sqs:ChangeMessageVisibility'
+              - 'sqs:GetQueueUrl'
+              - 'sqs:DeleteMessage'
+              - 'sqs:GetQueueAttributes'
+            Effect: Allow
+            Resource: 
+              - !GetAtt ACHOutProcessingQueueOutPacs008.Arn
+              - !GetAtt ACHOutProcessingQueueOutPacs007.Arn
+              - !GetAtt ACHOutProcessingQueueOutPacs004008.Arn
+              - !GetAtt ACHOutProcessingQueueOutPacs004003.Arn
+              - !GetAtt ACHOutProcessingQueueOutPacs004056.Arn
+              - !GetAtt ACHOutProcessingQueueOutPacs003.Arn
+              - !GetAtt ACHOutProcessingQueueOutPacs002008.Arn
+              - !GetAtt ACHOutProcessingQueueOutPacs002003.Arn
+              - !GetAtt ACHOutProcessingQueueOutCamt056.Arn
+              - !GetAtt ACHOutProcessingQueueOutCamt029.Arn
+              - !GetAtt ACHOutProcessingQueueOutAcmt024.Arn
+              - !GetAtt ACHOutProcessingQueueOutAcmt023.Arn
+              - !GetAtt ACHOutProcessingQueueOutAcmt022008.Arn
+          - Action:
+              - 's3:DeleteObject'
+              - 's3:DeleteObjectTagging'
+              - 's3:DeleteObjectVersion'
+              - 's3:DeleteObjectVersionTagging'
+              - 's3:PutObject'
+              - 's3:PutObjectLegalHold'
+              - 's3:PutObjectRetention'
+              - 's3:PutObjectTagging'
+              - 's3:PutObjectVersionTagging'
+              - 's3:AbortMultipartUpload'
+            Effect: Allow
+            Resource:
+              - !Sub "arn:${AWS::Partition}:s3:::${EnvironmentId}-${ModuleNameInLowerCase}-${TenantId}-batch-inputfiledirectory-${AWS::AccountId}"
+              - !Sub "arn:${AWS::Partition}:s3:::${EnvironmentId}-${ModuleNameInLowerCase}-${TenantId}-batch-outputfiledirectory-${AWS::AccountId}"
+          - Effect: Allow
+            Action:
+              - secretsmanager:GetSecretValue
+            Resource:
+              - !Ref SecretArn
+              - !Ref MicroserviceAuthenticationSecretArn
+
+        Version: 2012-10-17
+      PolicyName: !Sub "${EnvironmentId}-${Module}-out-execution-processor-policies"
+      Roles:
+        - !Ref LambdaOutEventsProcessorServiceRole
+  
+  AchProcessOutCallEcsServiceLambda:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    DependsOn:
+      - LambdaOutEventsProcessorServiceRoleDefaultPolicy
+      - LambdaOutEventsProcessorServiceRole
+    Properties:
+      FunctionName: !Join
+        - ""
+        - - !Ref EnvironmentId
+          - "-ach-process-out-call-service"
+      Handler: com.cobis.cloud.ach.aws.lambda.process.out.file.HandlerProcessOutStreamEvent::handleRequest
+      Role: !GetAtt LambdaOutEventsProcessorServiceRole.Arn
+      Timeout: 25
+      Architectures:
+        - arm64
+      MemorySize: 512
+      AutoPublishAlias: "production"
+      CodeUri: bis-ach-service-microservice/target/cobis-ach-batch-transform-call-service-lambda.jar
+      Runtime: java11
+      Tracing: Active
+      VpcConfig:
+        # SecurityGroupIds: 
+        # - !Ref "SecurityGroupACH"
+        SecurityGroupIds: [ !Ref SecurityGroupIds ]
+        SubnetIds: !Ref SubnetIds
+        # SubnetIds: !Ref SubnetIds
+      Environment:
+        Variables:
+          LOG_LEVEL: !Select [6, !Split [":", !Ref AchOutProcessingLambdaConfiguration]]
+          SECRET_ARN: !Ref SecretArn
+          LOAD_BALANCER_URL: !Ref LoadBalancerUrl
+          LOAD_BALANCER_PORT: !Ref MicroServicePort
+          TZ: !Ref TimeZone
+          REGION: !Ref RegionToDeploy
+          MICROSERVICE_AUTHENTICATION_SECRET_ARN: !Ref MicroserviceAuthenticationSecretArn
+      Tags:
+        ORGANIZATION: !Ref Organization
+        PACKAGE: !Ref Package
+        VERSION: !Ref Version
+        ENVIRONMENT_TYPE: !Ref EnvironmentType
+        ENVIRONMENT_ID: !Ref EnvironmentId
+        TENANT_ID: !Ref TenantId
+        PROJECT: !Ref Project
+        MODULE: !Ref Module
+  AchProcessOutCallEcsServiceLambdaSqsEventSourceACHOutProcessingQueueOutPacs008:
+    Type: 'AWS::Lambda::EventSourceMapping'
+    Properties:
+      FunctionName: !Ref AchProcessOutCallEcsServiceLambda
+      BatchSize: 10
+      EventSourceArn: !GetAtt 
+        - ACHOutProcessingQueueOutPacs008
+        - Arn
+      MaximumBatchingWindowInSeconds: 30
+  AchProcessOutCallEcsServiceLambdaSqsEventSourceACHOutProcessingQueueOutPacs007:
+    Type: 'AWS::Lambda::EventSourceMapping'
+    Properties:
+      FunctionName: !Ref AchProcessOutCallEcsServiceLambda
+      BatchSize: 10
+      EventSourceArn: !GetAtt 
+        - ACHOutProcessingQueueOutPacs007
+        - Arn
+      MaximumBatchingWindowInSeconds: 30
+  AchProcessOutCallEcsServiceLambdaSqsEventSourceACHOutProcessingQueueOutPacs004008:
+    Type: 'AWS::Lambda::EventSourceMapping'
+    Properties:
+      FunctionName: !Ref AchProcessOutCallEcsServiceLambda
+      BatchSize: 10
+      EventSourceArn: !GetAtt 
+        - ACHOutProcessingQueueOutPacs004008
+        - Arn
+      MaximumBatchingWindowInSeconds: 30
+  AchProcessOutCallEcsServiceLambdaSqsEventSourceACHOutProcessingQueueOutPacs004003:
+    Type: 'AWS::Lambda::EventSourceMapping'
+    Properties:
+      FunctionName: !Ref AchProcessOutCallEcsServiceLambda
+      BatchSize: 10
+      EventSourceArn: !GetAtt 
+        - ACHOutProcessingQueueOutPacs004003
+        - Arn
+      MaximumBatchingWindowInSeconds: 30
+  AchProcessOutCallEcsServiceLambdaSqsEventSourceACHOutProcessingQueueOutPacs004056:
+    Type: 'AWS::Lambda::EventSourceMapping'
+    Properties:
+      FunctionName: !Ref AchProcessOutCallEcsServiceLambda
+      BatchSize: 10
+      EventSourceArn: !GetAtt 
+        - ACHOutProcessingQueueOutPacs004056
+        - Arn
+      MaximumBatchingWindowInSeconds: 30
+  AchProcessOutCallEcsServiceLambdaSqsEventSourceACHOutProcessingQueueOutPacs003:
+    Type: 'AWS::Lambda::EventSourceMapping'
+    Properties:
+      FunctionName: !Ref AchProcessOutCallEcsServiceLambda
+      BatchSize: 10
+      EventSourceArn: !GetAtt 
+        - ACHOutProcessingQueueOutPacs003
+        - Arn
+      MaximumBatchingWindowInSeconds: 30
+  AchProcessOutCallEcsServiceLambdaSqsEventSourceACHOutProcessingQueueOutPacs002008:
+    Type: 'AWS::Lambda::EventSourceMapping'
+    Properties:
+      FunctionName: !Ref AchProcessOutCallEcsServiceLambda
+      BatchSize: 10
+      EventSourceArn: !GetAtt 
+        - ACHOutProcessingQueueOutPacs002008
+        - Arn
+      MaximumBatchingWindowInSeconds: 30
+  AchProcessOutCallEcsServiceLambdaSqsEventSourceACHOutProcessingQueueOutPacs002003:
+    Type: 'AWS::Lambda::EventSourceMapping'
+    Properties:
+      FunctionName: !Ref AchProcessOutCallEcsServiceLambda
+      BatchSize: 10
+      EventSourceArn: !GetAtt 
+        - ACHOutProcessingQueueOutPacs002003
+        - Arn
+      MaximumBatchingWindowInSeconds: 30
+  AchProcessOutCallEcsServiceLambdaSqsEventSourceACHOutProcessingQueueOutCamt056:
+    Type: 'AWS::Lambda::EventSourceMapping'
+    Properties:
+      FunctionName: !Ref AchProcessOutCallEcsServiceLambda
+      BatchSize: 10
+      EventSourceArn: !GetAtt 
+        - ACHOutProcessingQueueOutCamt056
+        - Arn
+      MaximumBatchingWindowInSeconds: 30
+  AchProcessOutCallEcsServiceLambdaSqsEventSourceACHOutProcessingQueueOutCamt029:
+    Type: 'AWS::Lambda::EventSourceMapping'
+    Properties:
+      FunctionName: !Ref AchProcessOutCallEcsServiceLambda
+      BatchSize: 10
+      EventSourceArn: !GetAtt 
+        - ACHOutProcessingQueueOutCamt029
+        - Arn
+      MaximumBatchingWindowInSeconds: 30
+  AchProcessOutCallEcsServiceLambdaSqsEventSourceACHOutProcessingQueueOutAcmt024:
+    Type: 'AWS::Lambda::EventSourceMapping'
+    Properties:
+      FunctionName: !Ref AchProcessOutCallEcsServiceLambda
+      BatchSize: 10
+      EventSourceArn: !GetAtt 
+        - ACHOutProcessingQueueOutAcmt024
+        - Arn
+      MaximumBatchingWindowInSeconds: 30
+  AchProcessOutCallEcsServiceLambdaSqsEventSourceACHOutProcessingQueueOutAcmt023:
+    Type: 'AWS::Lambda::EventSourceMapping'
+    Properties:
+      FunctionName: !Ref AchProcessOutCallEcsServiceLambda
+      BatchSize: 10
+      EventSourceArn: !GetAtt 
+        - ACHOutProcessingQueueOutAcmt023
+        - Arn
+      MaximumBatchingWindowInSeconds: 30
+  AchProcessOutCallEcsServiceLambdaSqsEventSourceACHOutProcessingQueueOutAcmt022008:
+    Type: 'AWS::Lambda::EventSourceMapping'
+    Properties:
+      FunctionName: !Ref AchProcessOutCallEcsServiceLambda
+      BatchSize: 10
+      EventSourceArn: !GetAtt 
+        - ACHOutProcessingQueueOutAcmt022008
+        - Arn
+      MaximumBatchingWindowInSeconds: 30
+  BatchProcessingOutEventRuleRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: 'sts:AssumeRole'
+
+      Policies:
+        - PolicyName: "AllowLoggingAndQueueSQS"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Join
+                  - ""
+                  - - "arn:aws:logs:us-east-1:"
+                    - !Sub "${AWS::AccountId}:"
+                    - "log-group:/aws/lambda/"
+                    - !Ref EnvironmentId
+                    - "-ach-process-out-call-service"
+              - Action:
+                  - 'sqs:ChangeMessageVisibility'
+                  - 'sqs:GetQueueUrl'
+                  - 'sqs:SendMessage'
+                  - 'sqs:GetQueueAttributes'
+                Effect: Allow
+                Resource: 
+                  - !GetAtt ACHOutProcessingQueueOutPacs008.Arn
+                  - !GetAtt ACHOutProcessingQueueOutPacs007.Arn
+                  - !GetAtt ACHOutProcessingQueueOutPacs004008.Arn
+                  - !GetAtt ACHOutProcessingQueueOutPacs004003.Arn
+                  - !GetAtt ACHOutProcessingQueueOutPacs004056.Arn
+                  - !GetAtt ACHOutProcessingQueueOutPacs003.Arn
+                  - !GetAtt ACHOutProcessingQueueOutPacs002008.Arn
+                  - !GetAtt ACHOutProcessingQueueOutPacs002003.Arn
+                  - !GetAtt ACHOutProcessingQueueOutCamt056.Arn
+                  - !GetAtt ACHOutProcessingQueueOutCamt029.Arn
+                  - !GetAtt ACHOutProcessingQueueOutAcmt024.Arn
+                  - !GetAtt ACHOutProcessingQueueOutAcmt023.Arn
+                  - !GetAtt ACHOutProcessingQueueOutAcmt022008.Arn
+
+      Tags:
+        - Key: "ORGANIZATION"
+          Value: !Ref Organization
+        - Key: "PACKAGE"
+          Value: !Ref Package
+        - Key: "VERSION"
+          Value: !Ref Version
+        - Key: "ENVIRONMENT_TYPE"
+          Value: !Ref EnvironmentType
+        - Key: "ENVIRONMENT_ID"
+          Value: !Ref EnvironmentId
+        - Key: "TENANT_ID"
+          Value: !Ref TenantId
+        - Key: "PROJECT"
+          Value: !Ref Project
+        - Key: "MODULE"
+          Value: !Ref Module
+        - Key: "PROCESSING_TYPE"
+          Value: "BATCH"
+
+  QueueOutAcmt022008QueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Statement:
+        - Action: sqs:SendMessage
+          Condition:
+            ArnEquals:
+              aws:SourceArn:
+                Fn::GetAtt:
+                - BatchProcessOutAcmt022008EventRule
+                - Arn
+          Effect: Allow
+          Principal:
+            Service: events.amazonaws.com
+          Resource:
+            Fn::GetAtt:
+            - ACHOutProcessingQueueOutAcmt024
+            - Arn
+          Sid: QueueOutAcmt022008QueuePolicyDFC
+        Version: '2012-10-17'
+      Queues:
+      - Ref: ACHOutProcessingQueueOutAcmt024
+
+  QueueOutPacs008QueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Statement:
+        - Action: sqs:SendMessage
+          Condition:
+            ArnEquals:
+              aws:SourceArn:
+                Fn::GetAtt:
+                - BatchProcessOutPacs008EventRule
+                - Arn
+          Effect: Allow
+          Principal:
+            Service: events.amazonaws.com
+          Resource:
+            Fn::GetAtt:
+            - ACHOutProcessingQueueOutPacs008
+            - Arn
+          Sid: QueueOutPacs008QueuePolicyDFC
+        Version: '2012-10-17'
+      Queues:
+      - Ref: ACHOutProcessingQueueOutPacs008
+
+  QueueOutPacs007QueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Statement:
+        - Action: sqs:SendMessage
+          Condition:
+            ArnEquals:
+              aws:SourceArn:
+                Fn::GetAtt:
+                - BatchProcessOutPacs007EventRule
+                - Arn
+          Effect: Allow
+          Principal:
+            Service: events.amazonaws.com
+          Resource:
+            Fn::GetAtt:
+            - ACHOutProcessingQueueOutPacs007
+            - Arn
+          Sid: QueueOutPacs007QueuePolicyDFC
+        Version: '2012-10-17'
+      Queues:
+      - Ref: ACHOutProcessingQueueOutPacs007
+
+  QueueOutPacs004008QueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Statement:
+        - Action: sqs:SendMessage
+          Condition:
+            ArnEquals:
+              aws:SourceArn:
+                Fn::GetAtt:
+                - BatchProcessOutPacs004008EventRule
+                - Arn
+          Effect: Allow
+          Principal:
+            Service: events.amazonaws.com
+          Resource:
+            Fn::GetAtt:
+            - ACHOutProcessingQueueOutPacs004008
+            - Arn
+          Sid: QueueOutPacs004008QueuePolicyDFC
+        Version: '2012-10-17'
+      Queues:
+      - Ref: ACHOutProcessingQueueOutPacs004008
+
+  QueueOutPacs004003QueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Statement:
+        - Action: sqs:SendMessage
+          Condition:
+            ArnEquals:
+              aws:SourceArn:
+                Fn::GetAtt:
+                - BatchProcessOutPacs004003EventRule
+                - Arn
+          Effect: Allow
+          Principal:
+            Service: events.amazonaws.com
+          Resource:
+            Fn::GetAtt:
+            - ACHOutProcessingQueueOutPacs004003
+            - Arn
+          Sid: QueueOutPacs004003QueuePolicyDFC
+        Version: '2012-10-17'
+      Queues:
+      - Ref: ACHOutProcessingQueueOutPacs004003
+
+  QueueOutPacs004056QueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Statement:
+        - Action: sqs:SendMessage
+          Condition:
+            ArnEquals:
+              aws:SourceArn:
+                Fn::GetAtt:
+                - BatchProcessOutPacs004056EventRule
+                - Arn
+          Effect: Allow
+          Principal:
+            Service: events.amazonaws.com
+          Resource:
+            Fn::GetAtt:
+            - ACHOutProcessingQueueOutPacs004056
+            - Arn
+          Sid: QueueOutPacs004056QueuePolicyDFC
+        Version: '2012-10-17'
+      Queues:
+      - Ref: ACHOutProcessingQueueOutPacs004056
+
+  QueueOutPacs003QueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Statement:
+        - Action: sqs:SendMessage
+          Condition:
+            ArnEquals:
+              aws:SourceArn:
+                Fn::GetAtt:
+                - BatchProcessOutPacs003EventRule
+                - Arn
+          Effect: Allow
+          Principal:
+            Service: events.amazonaws.com
+          Resource:
+            Fn::GetAtt:
+            - ACHOutProcessingQueueOutPacs003
+            - Arn
+          Sid: QueueOutPacs003QueuePolicyDFC
+        Version: '2012-10-17'
+      Queues:
+      - Ref: ACHOutProcessingQueueOutPacs003
+
+
+  QueueOutPacs002008QueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Statement:
+        - Action: sqs:SendMessage
+          Condition:
+            ArnEquals:
+              aws:SourceArn:
+                Fn::GetAtt:
+                - BatchProcessOutPacs002008EventRule
+                - Arn
+          Effect: Allow
+          Principal:
+            Service: events.amazonaws.com
+          Resource:
+            Fn::GetAtt:
+            - ACHOutProcessingQueueOutPacs002008
+            - Arn
+          Sid: QueueOutPacs002008QueuePolicyDFC
+        Version: '2012-10-17'
+      Queues:
+      - Ref: ACHOutProcessingQueueOutPacs002008
+
+  QueueOutPacs002003QueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Statement:
+        - Action: sqs:SendMessage
+          Condition:
+            ArnEquals:
+              aws:SourceArn:
+                Fn::GetAtt:
+                - BatchProcessOutPacs002003EventRule
+                - Arn
+          Effect: Allow
+          Principal:
+            Service: events.amazonaws.com
+          Resource:
+            Fn::GetAtt:
+            - ACHOutProcessingQueueOutPacs002003
+            - Arn
+          Sid: QueueOutPacs002003QueuePolicyDFC
+        Version: '2012-10-17'
+      Queues:
+      - Ref: ACHOutProcessingQueueOutPacs002003
+
+
+  QueueOutCamt056QueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Statement:
+        - Action: sqs:SendMessage
+          Condition:
+            ArnEquals:
+              aws:SourceArn:
+                Fn::GetAtt:
+                - BatchProcessOutCamt056EventRule
+                - Arn
+          Effect: Allow
+          Principal:
+            Service: events.amazonaws.com
+          Resource:
+            Fn::GetAtt:
+            - ACHOutProcessingQueueOutCamt056
+            - Arn
+          Sid: QueueOutCamt056QueuePolicyDFC
+        Version: '2012-10-17'
+      Queues:
+      - Ref: ACHOutProcessingQueueOutCamt056
+
+
+  QueueOutCamt029QueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Statement:
+        - Action: sqs:SendMessage
+          Condition:
+            ArnEquals:
+              aws:SourceArn:
+                Fn::GetAtt:
+                - BatchProcessOutCamt029EventRule
+                - Arn
+          Effect: Allow
+          Principal:
+            Service: events.amazonaws.com
+          Resource:
+            Fn::GetAtt:
+            - ACHOutProcessingQueueOutCamt029
+            - Arn
+          Sid: QueueOutCamt029QueuePolicyDFC
+        Version: '2012-10-17'
+      Queues:
+      - Ref: ACHOutProcessingQueueOutCamt029
+
+  QueueOutAcmt024QueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Statement:
+        - Action: sqs:SendMessage
+          Condition:
+            ArnEquals:
+              aws:SourceArn:
+                Fn::GetAtt:
+                - BatchProcessOutAcmt024EventRule
+                - Arn
+          Effect: Allow
+          Principal:
+            Service: events.amazonaws.com
+          Resource:
+            Fn::GetAtt:
+            - ACHOutProcessingQueueOutAcmt024
+            - Arn
+          Sid: QueueOutAcmt024QueuePolicyDFC
+        Version: '2012-10-17'
+      Queues:
+      - Ref: ACHOutProcessingQueueOutAcmt024
+
+  QueueOutAcmt023QueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Statement:
+        - Action: sqs:SendMessage
+          Condition:
+            ArnEquals:
+              aws:SourceArn:
+                Fn::GetAtt:
+                - BatchProcessOutAcmt023EventRule
+                - Arn
+          Effect: Allow
+          Principal:
+            Service: events.amazonaws.com
+          Resource:
+            Fn::GetAtt:
+            - ACHOutProcessingQueueOutAcmt023
+            - Arn
+          Sid: QueueOutAcmt023QueuePolicyDFC
+        Version: '2012-10-17'
+      Queues:
+      - Ref: ACHOutProcessingQueueOutAcmt023
+
+  BatchProcessOutAcmt024EventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Event rule to make ach batch process out
+      EventPattern:
+        id:
+          - {"exists":true}
+        source:
+          - cobis.ach
+        detail-type:
+          - COBIS ACH Process Out Order Transformed
+        detail:
+          eventSource:
+            - "ach.batch.processing"
+          eventName:
+            - "ExecuteBatchProcessingOut"
+          filePac:
+            - "acmt.024.001.02"
+          id:
+            - {"exists":true}
+          requestId:
+            - {"exists":true}
+      RoleArn: !GetAtt BatchProcessingOutEventRuleRole.Arn
+      Name: !Sub "${EnvironmentId}-${Module}-batch-processing-out-acmt024-event-rule"
+      Targets:
+        - Id: ACHOutProcessingQueueOutAcmt024Target
+          Arn: !GetAtt ACHOutProcessingQueueOutAcmt024.Arn
+
+
+
+  BatchProcessOutPacs008EventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Event rule to make ach batch process out
+      EventPattern:
+        id:
+          - {"exists":true}
+        source:
+          - cobis.ach
+        detail-type:
+          - COBIS ACH Process Out Order Transformed
+        detail:
+          eventSource:
+            - "ach.batch.processing"
+          eventName:
+            - "ExecuteBatchProcessingOut"
+          filePac:
+            - "pacs.008.001.07 - TDIR1"
+          id:
+            - {"exists":true}
+          requestId:
+            - {"exists":true}
+      RoleArn: !GetAtt BatchProcessingOutEventRuleRole.Arn
+      Name: !Sub "${EnvironmentId}-${Module}-batch-processing-out-pacs008-event-rule"
+      Targets:
+        - Id: ACHOutProcessingQueueOutPacs008Target
+          Arn: !GetAtt ACHOutProcessingQueueOutPacs008.Arn
+
+
+  BatchProcessOutPacs007EventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Event rule to make ach batch process out
+      EventPattern:
+        id:
+          - {"exists":true}
+        source:
+          - cobis.ach
+        detail-type:
+          - COBIS ACH Process Out Order Transformed
+        detail:
+          eventSource:
+            - "ach.batch.processing"
+          eventName:
+            - "ExecuteBatchProcessingOut"
+          filePac:
+            - "pacs.007.001.07 - TDIR1"
+          id:
+            - {"exists":true}
+          requestId:
+            - {"exists":true}
+      RoleArn: !GetAtt BatchProcessingOutEventRuleRole.Arn
+      Name: !Sub "${EnvironmentId}-${Module}-batch-processing-out-pacs007-event-rule"
+      Targets:
+        - Id: ACHOutProcessingQueueOutPacs007Target
+          Arn: !GetAtt ACHOutProcessingQueueOutPacs007.Arn
+
+
+  BatchProcessOutPacs004008EventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Event rule to make ach batch process out
+      EventPattern:
+        id:
+          - {"exists":true}
+        source:
+          - cobis.ach
+        detail-type:
+          - COBIS ACH Process Out Order Transformed
+        detail:
+          eventSource:
+            - "ach.batch.processing"
+          eventName:
+            - "ExecuteBatchProcessingOut"
+          filePac:
+            - "pacs.004.001.07 - 008"
+          originalFilePac:
+            - "pacs.008.001.07 - TDIR2"
+          id:
+            - {"exists":true}
+          requestId:
+            - {"exists":true}
+      RoleArn: !GetAtt BatchProcessingOutEventRuleRole.Arn
+      Name: !Sub "${EnvironmentId}-${Module}-batch-processing-out-pacs004008-event-rule"
+      Targets:
+        - Id: ACHOutProcessingQueueOutPacs004008Target
+          Arn: !GetAtt ACHOutProcessingQueueOutPacs004008.Arn
+
+
+  BatchProcessOutPacs004003EventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Event rule to make ach batch process out
+      EventPattern:
+        id:
+          - {"exists":true}
+        source:
+          - cobis.ach
+        detail-type:
+          - COBIS ACH Process Out Order Transformed
+        detail:
+          eventSource:
+            - "ach.batch.processing"
+          eventName:
+            - "ExecuteBatchProcessingOut"
+          filePac:
+            - "pacs.004.001.07 - 003"
+          originalFilePac:
+            - "pacs.003.001.07"
+          id:
+            - {"exists":true}
+          requestId:
+            - {"exists":true}
+      RoleArn: !GetAtt BatchProcessingOutEventRuleRole.Arn
+      Name: !Sub "${EnvironmentId}-${Module}-batch-processing-out-pacs004003-event-rule"
+      Targets:
+        - Id: ACHOutProcessingQueueOutPacs004003Target
+          Arn: !GetAtt ACHOutProcessingQueueOutPacs004003.Arn
+
+
+  BatchProcessOutPacs004056EventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Event rule to make ach batch process out
+      EventPattern:
+        id:
+          - {"exists":true}
+        source:
+          - cobis.ach
+        detail-type:
+          - COBIS ACH Process Out Order Transformed
+        detail:
+          eventSource:
+            - "ach.batch.processing"
+          eventName:
+            - "ExecuteBatchProcessingOut"
+          filePac:
+            - "pacs.004.001.07 - 056"
+          originalFilePac:
+            - "camt.056.001.06 - TDIR2"
+          id:
+            - {"exists":true}
+          requestId:
+            - {"exists":true}
+      RoleArn: !GetAtt BatchProcessingOutEventRuleRole.Arn
+      Name: !Sub "${EnvironmentId}-${Module}-batch-processing-out-pacs004056-event-rule"
+      Targets:
+        - Id: ACHOutProcessingQueueOutPacs004056Target
+          Arn: !GetAtt ACHOutProcessingQueueOutPacs004056.Arn
+
+
+  BatchProcessOutPacs003EventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Event rule to make ach batch process out
+      EventPattern:
+        id:
+          - {"exists":true}
+        source:
+          - cobis.ach
+        detail-type:
+          - COBIS ACH Process Out Order Transformed
+        detail:
+          eventSource:
+            - "ach.batch.processing"
+          eventName:
+            - "ExecuteBatchProcessingOut"
+          filePac:
+            - "pacs.003.001.07-TDIR1"
+          id:
+            - {"exists":true}
+          requestId:
+            - {"exists":true}
+      RoleArn: !GetAtt BatchProcessingOutEventRuleRole.Arn
+      Name: !Sub "${EnvironmentId}-${Module}-batch-processing-out-pacs003-event-rule"
+      Targets:
+        - Id: ACHOutProcessingQueueOutPacs003Target
+          Arn: !GetAtt ACHOutProcessingQueueOutPacs003.Arn
+
+  BatchProcessOutPacs002008EventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Event rule to make ach batch process out
+      EventPattern:
+        id:
+          - {"exists":true}
+        source:
+          - cobis.ach
+        detail-type:
+          - COBIS ACH Process Out Order Transformed
+        detail:
+          eventSource:
+            - "ach.batch.processing"
+          eventName:
+            - "ExecuteBatchProcessingOut"
+          filePac:
+            - "pacs.002.001.07 - TDIR-IC-008"
+          originalFilePac:
+            - "pacs.008.001.07 - TDIR2"
+          id:
+            - {"exists":true}
+          requestId:
+            - {"exists":true}
+      RoleArn: !GetAtt BatchProcessingOutEventRuleRole.Arn
+      Name: !Sub "${EnvironmentId}-${Module}-batch-processing-out-pacs002008-event-rule"
+      Targets:
+        - Id: ACHOutProcessingQueueOutPacs002008Target
+          Arn: !GetAtt ACHOutProcessingQueueOutPacs002008.Arn
+
+
+  BatchProcessOutPacs002003EventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Event rule to make ach batch process out
+      EventPattern:
+        id:
+          - {"exists":true}
+        source:
+          - cobis.ach
+        detail-type:
+          - COBIS ACH Process Out Order Transformed
+        detail:
+          eventSource:
+            - "ach.batch.processing"
+          eventName:
+            - "ExecuteBatchProcessingOut"
+          filePac:
+            - "pacs.002.001.07 - TDIR-ID-003"
+          originalFilePac:
+            - "pacs.003.001.07"
+          id:
+            - {"exists":true}
+          requestId:
+            - {"exists":true}
+      RoleArn: !GetAtt BatchProcessingOutEventRuleRole.Arn
+      Name: !Sub "${EnvironmentId}-${Module}-batch-processing-out-pacs002003-event-rule"
+      Targets:
+        - Id: ACHOutProcessingQueueOutPacs002003Target
+          Arn: !GetAtt ACHOutProcessingQueueOutPacs002003.Arn
+
+
+
+  BatchProcessOutCamt056EventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Event rule to make ach batch process out
+      EventPattern:
+        id:
+          - {"exists":true}
+        source:
+          - cobis.ach
+        detail-type:
+          - COBIS ACH Process Out Order Transformed
+        detail:
+          eventSource:
+            - "ach.batch.processing"
+          eventName:
+            - "ExecuteBatchProcessingOut"
+          filePac:
+            - "camt.056.001.06"
+          id:
+            - {"exists":true}
+          requestId:
+            - {"exists":true}
+      RoleArn: !GetAtt BatchProcessingOutEventRuleRole.Arn
+      Name: !Sub "${EnvironmentId}-${Module}-batch-processing-out-camt056-event-rule"
+      Targets:
+        - Id: ACHOutProcessingQueueOutCamt056Target
+          Arn: !GetAtt ACHOutProcessingQueueOutCamt056.Arn
+
+
+  BatchProcessOutCamt029EventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Event rule to make ach batch process out
+      EventPattern:
+        id:
+          - {"exists":true}
+        source:
+          - cobis.ach
+        detail-type:
+          - COBIS ACH Process Out Order Transformed
+        detail:
+          eventSource:
+            - "ach.batch.processing"
+          eventName:
+            - "ExecuteBatchProcessingOut"
+          filePac:
+            - "camt.029.001.07 - TDIR1"
+          id:
+            - {"exists":true}
+          requestId:
+            - {"exists":true}
+      RoleArn: !GetAtt BatchProcessingOutEventRuleRole.Arn
+      Name: !Sub "${EnvironmentId}-${Module}-batch-processing-out-camt029-event-rule"
+      Targets:
+        - Id: ACHOutProcessingQueueOutCamt029Target
+          Arn: !GetAtt ACHOutProcessingQueueOutCamt029.Arn
+
+  BatchProcessOutAcmt023EventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Event rule to make ach batch process out
+      EventPattern:
+        id:
+          - {"exists":true}
+        source:
+          - cobis.ach
+        detail-type:
+          - COBIS ACH Process Out Order Transformed
+        detail:
+          eventSource:
+            - "ach.batch.processing"
+          eventName:
+            - "ExecuteBatchProcessingOut"
+          filePac:
+            - "acmt.023.001.02 - TDIR1"
+          id:
+            - {"exists":true}
+          requestId:
+            - {"exists":true}
+      RoleArn: !GetAtt BatchProcessingOutEventRuleRole.Arn
+      Name: !Sub "${EnvironmentId}-${Module}-batch-processing-out-camt023-event-rule"
+      Targets:
+        - Id: ACHOutProcessingQueueOutAcmt023Target
+          Arn: !GetAtt ACHOutProcessingQueueOutAcmt023.Arn
+
+  BatchProcessOutAcmt022008EventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Event rule to make ach batch process out
+      EventPattern:
+        id:
+          - {"exists":true}
+        source:
+          - cobis.ach
+        detail-type:
+          - COBIS ACH Process Out Order Transformed
+        detail:
+          eventSource:
+            - "ach.batch.processing"
+          eventName:
+            - "ExecuteBatchProcessingOut"
+          filePac:
+            - "acmt.022.001.02 - TDIR1"
+          originalFilePac:
+            - "pacs.008.001.07 - TDIR2"
+          id:
+            - {"exists":true}
+          requestId:
+            - {"exists":true}
+      RoleArn: !GetAtt BatchProcessingOutEventRuleRole.Arn
+      Name: !Sub "${EnvironmentId}-${Module}-batch-processing-out-acmt022008-event-rule"
+      Targets:
+        - Id: ACHOutProcessingQueueOutAcmt022008Target
+          Arn: !GetAtt ACHOutProcessingQueueOutAcmt022008.Arn

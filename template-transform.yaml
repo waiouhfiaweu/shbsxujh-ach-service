@@ -1,0 +1,987 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  SAM Template for batch in ACH Service
+
+Parameters:
+  AwsAccountIdToDeploy:
+    Type: String
+    Description: Identificador de la cuenta AWS donde se desplegará el microservicio.
+  SecurityGroupACH:
+    Description: Security Group Backend Private
+    Type: String  
+  RegionToDeploy:
+    Type: String
+    AllowedValues: [us-east-2, us-west-2, us-east-1]
+    ConstraintDescription: must specify us-east-2,us-west-2,us-east-1.
+    Description: Región en la cual se realizará el despliegue del microservicio.
+  SharedResourcesAccount:
+    Description: Cuenta AWS de recursos compartidos
+    Type: String
+  RegionSharedResourcesAccount:
+    Description: Region de la Cuenta AWS de recursos compartidos donde se alojan los repos ECR
+    Type: String
+  Organization:
+    Type: String
+    Description: "Identificador del dueño componente."
+  Package:
+    Type: String
+    Description: "Identificador del paquete de productos comerciales al que se asocia el componente."
+  Project:
+    Type: String
+    Description: "Identificador del proyecto por el que se crea el componente."
+  EnvironmentId:
+    Type: String
+    Description: "Identificador del ambiente."
+  EnvironmentIdBase:
+    Type: String
+    Description: "Prefijo de recursos de la infraestructura base para referenciar en el microservicio. Pueden ser [dev, qa, stg, prod u otro personalizado]"
+  EnvironmentType:
+    Type: String
+    AllowedValues: [PRODUCTION, QUALITY, STAGING, DEVELOPMENT]
+    ConstraintDescription: must specify PRODUCTION, STAGING, QUALITY or DEVELOPMENT.
+  TenantId:
+    Type: String
+    Description: "Identificador del tenant."
+  BatchImportDataBase:
+    Type: String
+    Description: "Esquema de bd donde se importan los datos por el step function."
+  BatchImportTable:
+    Type: String
+    Description: "Tabla donde se importan los datos por el step function."
+  GlueImportDataBase:
+    Type: String
+    Description: "Esquema de bd para el servicio de Glue."
+  GlueImportTable:
+    Type: String
+    Description: "Tabla virtual para el servicio de Glue."
+  Module:
+    Type: String
+    Description: "Nombre del módulo o microservicio."
+  ModuleNameInLowerCase:
+    Type: String
+    Description: "Nombre del módulo o microservicio en minusculas."
+  Version:
+    Type: String
+    Default: "1.0.0"
+    Description: "Versión del módulo o microservicio al que pertenece el componente."
+  SubnetIds:
+    Type: CommaDelimitedList
+    Description: "Identificador de las subnets donde se ejecutará la lógica de negocio del microservicio (Deben estar entre comillas dobles y separadas por comas)."
+  SecurityGroupIds:
+    Type: String
+    Description: "Identificador del security group donde se ejecutará la lógica de negocio del microservicio."
+  SecretArn:
+    Type: String
+    Description: "ARN del secreto que contiene los datos de conexion a la base de datos MySQL para el microservicio."
+  TimeZone:
+    Type: String
+    Description: "Identificador de zona horaria."
+  LogLevel:
+    Type: String
+    AllowedValues: [INFO, DEBUG, WARNING, ERROR, TRACE]
+    ConstraintDescription: must specify INFO, DEBUG, WARNING or TRACE.
+    Description: "Nivel de escritura de logs del microservicio: INFO, DEBUG, WARNING, TRACE."
+  LogRetentionDays:
+    Type: Number
+    Description: "Dias de retención para logs del microservicio."
+  ProcessingType:
+    Type: String
+    Description: "Tipo de procesamiento."
+  AWSBatchServiceRole:
+    Type: String
+    Description: "Rol para el servicio del entorno computacional en AWS Batch."
+  DockerRepository:
+    Type: String
+    Description: "Docker Repository."
+  DockerTag:
+    Type: String
+    Description: "Docker Tag."
+  AchBatchUpdatingLambdaConfiguration:
+    Description: "AchBatchUpdatingLambda"
+    Type: String
+    Default: "1024:0:0:0:0:0:INFO"
+  OriginPacs004008:
+    Description: "pac de origin para el pac 004-008"
+    Type: String
+    Default: "pacs.008.001.07 - TDIR2"
+  OriginPacs004003:
+    Description: "pac de origin para el pac 004-003"
+    Type: String
+    Default: "pacs.003.001.07"
+  OriginPacs004056:
+    Description: "pac de origin para el pac 004-056"
+    Type: String
+    Default: "camt.056.001.06 - TDIR2"
+  OriginPacs002008:
+    Description: "pac de origin para el pac 002-008"
+    Type: String
+    Default: "pacs.008.001.07 - TDIR2"
+  OriginPacs002003:
+    Description: "pac de origin para el pac 002-003"
+    Type: String
+    Default: "pacs.003.001.07"
+  OriginAcmt023:
+    Description: "pac de origin para el acmt 023"
+    Type: String
+    Default: "acmt.023.001.02 - TDIR1"
+  OriginAcmt022008:
+    Description: "pac de origin para el acmt 022-008"
+    Type: String
+    Default: "pacs.008.001.07 - TDIR2"
+  LoggingBucket:
+    Default: ""
+    Type: String
+    Description: "Bucket en el cual se almacenaran los logs de acceso a s3"
+  profile:
+    Description: Service profile
+    Type: String
+  SECRETMANAGERUSERNAME:
+    Description: Secreto donde se encuentra las credenciales de base de datos
+    Type: String
+  TransferFamilyUserOut:
+    Description: Nombre de usuario de coneccion a al SFTP en el directorio de salida
+    Type: String
+  TransferFamilyUserIn:
+    Description: Nombre de usuario de coneccion a al SFTP en el directorio de entrada
+    Type: String
+  TransferFamilyServerId:
+    Description: Instancia del servidor de transfer family que se encuentra ejecutando
+    Type: String
+  TransferFamilyUserPublicKey:
+    Description: Llave publica que se utiliza para la autenticación de los dos usuarios
+    Type: String
+  BatchMemory:
+    Description: Memoria asignada al proceso batch
+    Type: Number
+    AllowedValues: [512,1024,2048,3072,4096]
+  BatchVcpu:
+    Description: Memoria asignada al proceso batch
+    Type: Number
+    AllowedValues: [0.25,0.5,1,2,4]
+  LoadBalancerUrl:
+    Description: Url de balanceador de carga para el Ach Service
+    Type: String
+  microServicePort:
+    Description: Puerto de balanceador de carga para el Ach Service
+    Type: String
+  FileProcessingServicePath:
+    Description: Ruta del servicio de carga de archivos para el Ach Service
+    Type: String
+  MicroserviceAuthenticationSecretArn:
+    Type: String
+    Description: "Arn del secreto de autenticacion"
+  InputFileDirectoryBucketLifeCycle:
+    Type: String
+    Description: "Configuración de ciclo de vida del bucket, valor en días para: 1) Transicion Infrequent Access, 2) Transición Glacier, 3) Eliminación archivos, 4) Eliminación de versiones antiguas"
+  OutputFileDirectoryBucketLifeCycle:
+    Type: String
+    Description: "Configuración de ciclo de vida del bucket, valor en días para: 1) Transicion Infrequent Access, 2) Transición Glacier, 3) Eliminación archivos, 4) Eliminación de versiones antiguas"
+
+Conditions:
+  LoggingBucketIsDefined: !Not [ !Equals [ "", !Ref LoggingBucket ] ]
+
+  #S3Bucket LyfeCycle
+  InputFileDirectoryBucketHasLifeCicle: !Not [ !Equals [ !Ref InputFileDirectoryBucketLifeCycle, "0:0:0:0" ] ]
+  InputFileDirectoryBucketHasStandardAStorage: !Not [ !Equals [ !Select [ 0, !Split [ ":" , !Ref InputFileDirectoryBucketLifeCycle ] ] , 0 ] ]
+  InputFileDirectoryBucketHasGracierStorage: !Not [ !Equals [ !Select [ 1, !Split [ ":" , !Ref InputFileDirectoryBucketLifeCycle ] ] , 0 ] ]
+  InputFileDirectoryBucketHasExpiration: !Not [ !Equals [ !Select [ 2, !Split [ ":" , !Ref InputFileDirectoryBucketLifeCycle ] ] , 0 ] ]
+  InputFileDirectoryBucketHasNoncurrentVersionExpiration: !Not [ !Equals [ !Select [ 3, !Split [ ":" , !Ref InputFileDirectoryBucketLifeCycle ] ] , 0 ] ]
+
+  #S3Bucket LyfeCycle
+  OutputFileDirectoryBucketHasLifeCicle: !Not [ !Equals [ !Ref OutputFileDirectoryBucketLifeCycle, "0:0:0:0" ] ]
+  OutputFileDirectoryBucketHasStandardAStorage: !Not [ !Equals [ !Select [ 0, !Split [ ":" , !Ref OutputFileDirectoryBucketLifeCycle ] ] , 0 ] ]
+  OutputFileDirectoryBucketHasGracierStorage: !Not [ !Equals [ !Select [ 1, !Split [ ":" , !Ref OutputFileDirectoryBucketLifeCycle ] ] , 0 ] ]
+  OutputFileDirectoryBucketHasExpiration: !Not [ !Equals [ !Select [ 2, !Split [ ":" , !Ref OutputFileDirectoryBucketLifeCycle ] ] , 0 ] ]
+  OutputFileDirectoryBucketHasNoncurrentVersionExpiration: !Not [ !Equals [ !Select [ 3, !Split [ ":" , !Ref OutputFileDirectoryBucketLifeCycle ] ] , 0 ] ]
+
+Resources:
+
+
+  InputFileDirectoryBucket:
+    Type: AWS::S3::Bucket    
+    Properties:
+      NotificationConfiguration:
+        EventBridgeConfiguration:
+          EventBridgeEnabled: True
+      BucketName: !Sub "${EnvironmentId}-${ModuleNameInLowerCase}-${TenantId}-batch-inputfiledirectory-${AWS::AccountId}"
+      AccessControl: "Private"
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: TRUE
+        BlockPublicPolicy: TRUE
+        IgnorePublicAcls: TRUE
+        RestrictPublicBuckets: TRUE
+      LoggingConfiguration:
+        !If
+        - LoggingBucketIsDefined
+        -
+          DestinationBucketName: !Ref LoggingBucket
+          LogFilePrefix: !Join ['',["input","-", !Ref "Module" ]]
+        - !Ref AWS::NoValue
+
+      LifecycleConfiguration:
+        !If
+          - InputFileDirectoryBucketHasLifeCicle
+          - Rules:
+              - Id: S3LifeCycle
+                Status: Enabled
+                ExpirationInDays: !If [ InputFileDirectoryBucketHasExpiration, !Select [ 2, !Split [ ":", !Ref InputFileDirectoryBucketLifeCycle ] ] , !Ref "AWS::NoValue"]
+                NoncurrentVersionExpiration:
+                  NoncurrentDays: !If [ InputFileDirectoryBucketHasNoncurrentVersionExpiration, !Select [ 3, !Split [ ":", !Ref InputFileDirectoryBucketLifeCycle ] ] , !Ref "AWS::NoValue"]
+                Transitions:
+                  - !If
+                    - InputFileDirectoryBucketHasStandardAStorage
+                    - TransitionInDays: !Select [ 0, !Split [ ":", !Ref InputFileDirectoryBucketLifeCycle ] ]
+                      StorageClass: STANDARD_IA
+                    - !Ref "AWS::NoValue"
+                  - !If
+                    - InputFileDirectoryBucketHasGracierStorage
+                    - TransitionInDays: !Select [ 1, !Split [ ":", !Ref InputFileDirectoryBucketLifeCycle ] ]
+                      StorageClass: DEEP_ARCHIVE
+                    - !Ref "AWS::NoValue"
+          - !Ref "AWS::NoValue"
+      Tags:
+        - Key: "ORGANIZATION"
+          Value: !Ref Organization
+        - Key: "PACKAGE"
+          Value: !Ref Package
+        - Key: "VERSION"
+          Value: !Ref Version
+        - Key: "ENVIRONMENT_TYPE"
+          Value: !Ref EnvironmentType
+        - Key: "ENVIRONMENT_ID"
+          Value: !Ref EnvironmentId
+        - Key: "TENANT_ID"
+          Value: !Ref TenantId
+        - Key: "PROJECT"
+          Value: !Ref Project
+        - Key: "MODULE"
+          Value: !Ref Module
+        - Key: "PROCESSING_TYPE"
+          Value: "BATCH"
+
+  InputFileDirectoryPolicy:
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      Bucket:
+        Ref: "InputFileDirectoryBucket"
+      PolicyDocument:
+        Statement:
+          - Effect: "Deny"
+            Principal: "*"
+            Action:
+              - "s3:*"
+            Resource:
+              - !Join ["", [!GetAtt InputFileDirectoryBucket.Arn, "/*"]]
+              - !GetAtt InputFileDirectoryBucket.Arn
+            Condition:
+              Bool:
+                "aws:SecureTransport":
+                  - "false"
+          - Effect: "Allow"
+            Principal:
+              "AWS":
+                - !GetAtt ECSTaskExecutionRole.Arn
+            Action:
+              - "s3:*"
+            Resource:
+              - !Join [ "", [ !GetAtt InputFileDirectoryBucket.Arn, "/*" ] ]
+              - !GetAtt InputFileDirectoryBucket.Arn
+
+  OutputFileDirectoryBucket:
+    Type: AWS::S3::Bucket    
+    Properties:
+      BucketName: !Sub "${EnvironmentId}-${ModuleNameInLowerCase}-${TenantId}-batch-outputfiledirectory-${AWS::AccountId}"
+      AccessControl: "Private"
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: TRUE
+        BlockPublicPolicy: TRUE
+        IgnorePublicAcls: TRUE
+        RestrictPublicBuckets: TRUE
+      LoggingConfiguration:
+        !If
+        - LoggingBucketIsDefined
+        -
+          DestinationBucketName: !Ref LoggingBucket
+          LogFilePrefix: !Join ['',["output", "-", !Ref "Module" ]]
+        - !Ref AWS::NoValue
+      LifecycleConfiguration:
+        !If
+          - OutputFileDirectoryBucketHasLifeCicle
+          - Rules:
+              - Id: S3LifeCycle
+                Status: Enabled
+                ExpirationInDays: !If [ OutputFileDirectoryBucketHasExpiration, !Select [ 2, !Split [ ":", !Ref OutputFileDirectoryBucketLifeCycle ] ] , !Ref "AWS::NoValue"]
+                NoncurrentVersionExpiration:
+                  NoncurrentDays: !If [ OutputFileDirectoryBucketHasNoncurrentVersionExpiration, !Select [ 3, !Split [ ":", !Ref OutputFileDirectoryBucketLifeCycle ] ] , !Ref "AWS::NoValue"]
+                Transitions:
+                  - !If
+                    - OutputFileDirectoryBucketHasStandardAStorage
+                    - TransitionInDays: !Select [ 0, !Split [ ":", !Ref OutputFileDirectoryBucketLifeCycle ] ]
+                      StorageClass: STANDARD_IA
+                    - !Ref "AWS::NoValue"
+                  - !If
+                    - OutputFileDirectoryBucketHasGracierStorage
+                    - TransitionInDays: !Select [ 1, !Split [ ":", !Ref OutputFileDirectoryBucketLifeCycle ] ]
+                      StorageClass: DEEP_ARCHIVE
+                    - !Ref "AWS::NoValue"
+          - !Ref "AWS::NoValue"
+      Tags:
+        - Key: "ORGANIZATION"
+          Value: !Ref Organization
+        - Key: "PACKAGE"
+          Value: !Ref Package
+        - Key: "VERSION"
+          Value: !Ref Version
+        - Key: "ENVIRONMENT_TYPE"
+          Value: !Ref EnvironmentType
+        - Key: "ENVIRONMENT_ID"
+          Value: !Ref EnvironmentId
+        - Key: "TENANT_ID"
+          Value: !Ref TenantId
+        - Key: "PROJECT"
+          Value: !Ref Project
+        - Key: "MODULE"
+          Value: !Ref Module
+        - Key: "PROCESSING_TYPE"
+          Value: "BATCH"
+
+  OutputFileDirectoryPolicy:
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      Bucket:
+        Ref: "OutputFileDirectoryBucket"
+      PolicyDocument:
+        Statement:
+          - Effect: "Deny"
+            Principal: "*"
+            Action:
+              - "s3:*"
+            Resource:
+              - !Join ["", [!GetAtt OutputFileDirectoryBucket.Arn, "/*"]]
+              - !GetAtt OutputFileDirectoryBucket.Arn
+            Condition:
+              Bool:
+                "aws:SecureTransport":
+                  - "false"
+          - Effect: "Allow"
+            Principal:
+              "AWS":
+                - !GetAtt ECSTaskExecutionRole.Arn
+            Action:
+              - "s3:*"
+            Resource:
+              - !Join [ "", [ !GetAtt OutputFileDirectoryBucket.Arn, "/*" ] ]
+              - !GetAtt OutputFileDirectoryBucket.Arn
+
+  ACHComputeEnvironment:
+    Type: AWS::Batch::ComputeEnvironment
+    Properties:
+      ComputeEnvironmentName: !Sub "${EnvironmentId}-${Module}-ComputeEnvironment"
+      ComputeResources:
+        SecurityGroupIds: [!Ref SecurityGroupIds]
+        Subnets: !Ref SubnetIds
+        MaxvCpus: 160
+        Type: FARGATE
+      ServiceRole: !Ref AWSBatchServiceRole
+      Type: MANAGED
+      Tags:
+        {
+          "ORGANIZATION": !Ref Organization,
+          "PACKAGE": !Ref Package,
+          "VERSION": !Ref Version,
+          "ENVIRONMENT_TYPE": !Ref EnvironmentType,
+          "ENVIRONMENT_ID": !Ref EnvironmentId,
+          "TENANT_ID": !Ref TenantId,
+          "PROJECT": !Ref Project,
+          "MODULE": !Ref Module,
+          "PROCESSING_TYPE": !Ref ProcessingType,
+        }
+
+  ACHJobQueue:
+    Type: AWS::Batch::JobQueue
+    Properties:
+      ComputeEnvironmentOrder:
+        - Order: 1
+          ComputeEnvironment: !Ref ACHComputeEnvironment
+      JobQueueName: !Sub "${EnvironmentId}-${Module}-ComputeEnvironmentQueue"
+      Priority: 1
+      State: ENABLED
+      Tags:
+        {
+          "ORGANIZATION": !Ref Organization,
+          "PACKAGE": !Ref Package,
+          "VERSION": !Ref Version,
+          "ENVIRONMENT_TYPE": !Ref EnvironmentType,
+          "ENVIRONMENT_ID": !Ref EnvironmentId,
+          "TENANT_ID": !Ref TenantId,
+          "PROJECT": !Ref Project,
+          "MODULE": !Ref Module,
+          "PROCESSING_TYPE": !Ref ProcessingType,
+        }
+
+  RolePolicies:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyName: !Sub "${EnvironmentId}-${Module}-ECSTask-ExecutionRole-Policies"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action:
+              - secretsmanager:DescribeSecret
+              - secretsmanager:GetSecretValue
+              - secretsmanager:ListSecrets
+            Effect: Allow
+            Resource: !Ref SecretArn
+          - Action:
+              - ecr:GetAuthorizationToken
+            Effect: Allow
+            Resource: !Sub "arn:aws:ecr:${RegionSharedResourcesAccount}:${SharedResourcesAccount}:repository/cobis/ach/service"
+          - Action:
+              - ecr:GetAuthorizationToken
+              - ecr:BatchCheckLayerAvailability
+              - ecr:GetDownloadUrlForLayer
+              - ecr:BatchGetImage
+            Effect: Allow
+            Resource: !Sub "arn:aws:ecr:${RegionSharedResourcesAccount}:${SharedResourcesAccount}:repository/cobis/ach/service"
+          - Action:
+              - kms:Decrypt
+              - kms:Encrypt
+            Effect: Allow
+            Resource:
+              - !Sub arn:aws:kms:${RegionToDeploy}:${AwsAccountIdToDeploy}:key/*
+          - Action:
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Effect: Allow
+            Resource:
+              - !Sub arn:aws:logs:${RegionToDeploy}:${AwsAccountIdToDeploy}:log-group:/aws/batch/job:*
+          - Action:
+              - s3:PutObject
+              - s3:GetObject
+              - s3:DeleteObject
+            Effect: Allow
+            Resource:
+              - !Sub arn:aws:s3:::*
+          - Action:
+              - states:StartExecution
+            Effect: Allow
+            Resource:
+              - !Sub arn:aws:states:${RegionToDeploy}:${AwsAccountIdToDeploy}:stateMachine:${EnvironmentIdBase}-cobis-batch-file_import_flow
+              - !Sub arn:aws:states:${RegionToDeploy}:${AwsAccountIdToDeploy}:stateMachine:${EnvironmentId}-${Module}-LoadFile-StepFunction
+          - Action:
+              - dynamodb:DeleteItem
+              - dynamodb:CreateTableReplica
+              - dynamodb:UpdateGlobalTable
+              - dynamodb:DeleteTable
+              - dynamodb:UpdateTableReplicaAutoScaling
+              - dynamodb:DescribeTable
+              - dynamodb:PartiQLInsert
+              - dynamodb:GetItem
+              - dynamodb:CreateGlobalTable
+              - dynamodb:BatchGetItem
+              - dynamodb:BatchWriteItem
+              - dynamodb:PutItem
+              - dynamodb:PartiQLUpdate
+              - dynamodb:Scan
+              - dynamodb:Query
+              - dynamodb:DescribeStream
+              - dynamodb:UpdateItem
+              - dynamodb:DeleteTableReplica
+              - dynamodb:CreateTable
+              - dynamodb:UpdateTable
+              - dynamodb:GetRecords
+              - dynamodb:PartiQLDelete
+              - dynamodb:DescribeTableReplicaAutoScaling
+            Effect: Allow
+            Resource:
+              - !Sub arn:aws:dynamodb:${RegionToDeploy}:${AwsAccountIdToDeploy}:table/*
+      Roles:
+        - Ref: ECSTaskExecutionRole
+
+  ECSTaskExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: sts:AssumeRole
+            Principal:
+              Service:
+                - ecs-tasks.amazonaws.com
+            Effect: Allow
+            Sid: ""
+      Path: /
+      RoleName: !Sub "${EnvironmentId}-${Module}-ECSTask-ExecutionRole"
+      Tags:
+        - Key: "ORGANIZATION"
+          Value: !Ref Organization
+        - Key: "PACKAGE"
+          Value: !Ref Package
+        - Key: "VERSION"
+          Value: !Ref Version
+        - Key: "ENVIRONMENT_TYPE"
+          Value: !Ref EnvironmentType
+        - Key: "ENVIRONMENT_ID"
+          Value: !Ref EnvironmentId
+        - Key: "TENANT_ID"
+          Value: !Ref TenantId
+        - Key: "PROJECT"
+          Value: !Ref Project
+        - Key: "MODULE"
+          Value: !Ref Module
+        - Key: "PROCESSING_TYPE"
+          Value: "BATCH"
+
+  ACHFileValidationsEventPolicy:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyName: !Sub "${EnvironmentId}-${Module}-FileValidationsEvent-Policy"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action:
+              - batch:SubmitJob
+            Effect: Allow
+            Resource: 
+              - !Sub "arn:aws:batch:${RegionToDeploy}:${AwsAccountIdToDeploy}:job-definition/${EnvironmentId}-${Module}-job-execution-processing-definition"
+              - !Sub "arn:aws:batch:${RegionToDeploy}:${AwsAccountIdToDeploy}:job-definition/${EnvironmentId}-${Module}-job-execution-jobach-definition"
+              - !Sub "arn:aws:batch:${RegionToDeploy}:${AwsAccountIdToDeploy}:job-definition/${EnvironmentId}-${Module}-job-execution-createTmp-definition"
+              - !Ref ACHJobQueue
+              
+      Roles:
+        - Ref: ACHFileValidationsEventRole
+
+  ACHFileValidationsEventRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: sts:AssumeRole
+            Principal:
+              Service:
+                - events.amazonaws.com
+            Effect: Allow
+            Sid: ""
+      Path: /
+      RoleName: !Sub "${EnvironmentId}-${Module}-FileValidationsEvent-Role"
+      Tags:
+        - Key: "ORGANIZATION"
+          Value: !Ref Organization
+        - Key: "PACKAGE"
+          Value: !Ref Package
+        - Key: "VERSION"
+          Value: !Ref Version
+        - Key: "ENVIRONMENT_TYPE"
+          Value: !Ref EnvironmentType
+        - Key: "ENVIRONMENT_ID"
+          Value: !Ref EnvironmentId
+        - Key: "TENANT_ID"
+          Value: !Ref TenantId
+        - Key: "PROJECT"
+          Value: !Ref Project
+        - Key: "MODULE"
+          Value: !Ref Module
+        - Key: "PROCESSING_TYPE"
+          Value: "BATCH"
+
+
+  S3TransformInEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Execute Job to generate bcp file and import data
+      EventPattern:
+        source:
+          - aws.s3
+        detail-type:
+          - "Object Created"
+          - "PutObject"
+          - "CompleteMultipartUpload"
+          - "CopyObject"
+        detail:
+          bucket:
+            name:
+              - !Ref InputFileDirectoryBucket
+      Name: !Sub "${EnvironmentId}-${Module}-TransformIn-CloudwatchRule"
+      Targets:
+        - Id: TransformInService
+          Arn: !GetAtt AchBatchCallEcsServiceLambda.Arn
+          RetryPolicy:
+            MaximumEventAgeInSeconds: 60
+            MaximumRetryAttempts: 3
+          InputTransformer:
+            InputPathsMap:
+              "requestId": "$.id"
+              "S3KeyValue": "$.detail.object.key"
+              "S3BucketValue": "$.detail.bucket.name"
+            InputTemplate: !Sub
+              |-
+              {
+                "id": <requestId>,
+                "detail": {
+                  "requestParameters": {
+                    "bucketInputName": <S3BucketValue>,
+                    "bucketOutputName": "${EnvironmentId}-${ModuleNameInLowerCase}-${TenantId}-batch-outputfiledirectory-${AwsAccountIdToDeploy}",
+                    "key": <S3KeyValue>
+                  }
+                }
+              }
+
+  AchLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Join
+        - ""
+        - - !Ref EnvironmentId
+          - "-AchBatch-Updating-Role"
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Path: /
+      Policies:
+        - PolicyName: !Sub "${EnvironmentId}-policy_allows_getsecretvalue"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource:
+                  - !Ref SecretArn
+                  - !Ref MicroserviceAuthenticationSecretArn
+      Tags:
+        - Key: "ORGANIZATION"
+          Value: !Ref Organization
+        - Key: "PACKAGE"
+          Value: !Ref Package
+        - Key: "VERSION"
+          Value: !Ref Version
+        - Key: "ENVIRONMENT_TYPE"
+          Value: !Ref EnvironmentType
+        - Key: "ENVIRONMENT_ID"
+          Value: !Ref EnvironmentId
+        - Key: "TENANT_ID"
+          Value: !Ref TenantId
+        - Key: "PROJECT"
+          Value: !Ref Project
+        - Key: "MODULE"
+          Value: !Ref Module
+        - Key: "PROCESSING_TYPE"
+          Value: !Ref ProcessingType
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess"
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+        - "arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess"
+        - "arn:aws:iam::aws:policy/SecretsManagerReadWrite"
+
+  SFTPTransferFamilyRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: sts:AssumeRole
+            Principal:
+              Service:
+                - transfer.amazonaws.com
+            Effect: Allow
+            Sid: ""
+      Path: /
+      RoleName: !Sub "${EnvironmentId}-${ModuleNameInLowerCase}-TransferFamily-ExecutionRole"
+      Tags:
+        - Key: "ORGANIZATION"
+          Value: !Ref Organization
+        - Key: "PACKAGE"
+          Value: !Ref Package
+        - Key: "VERSION"
+          Value: !Ref Version
+        - Key: "ENVIRONMENT_TYPE"
+          Value: !Ref EnvironmentType
+        - Key: "ENVIRONMENT_ID"
+          Value: !Ref EnvironmentId
+        - Key: "TENANT_ID"
+          Value: !Ref TenantId
+        - Key: "PROJECT"
+          Value: !Ref Project
+        - Key: "MODULE"
+          Value: !Ref Module
+        - Key: "PROCESSING_TYPE"
+          Value: "BATCH"
+
+  SFTPTransferFamilyPolicy:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyName: !Sub "${EnvironmentId}-${ModuleNameInLowerCase}-TransferFamily-Policy"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action:
+              - s3:ListBucket
+            Effect: Allow
+            Resource:
+              - !Sub "arn:aws:s3:::${EnvironmentId}-${ModuleNameInLowerCase}-${TenantId}-batch-inputfiledirectory-${AWS::AccountId}"
+              - !Sub "arn:aws:s3:::${EnvironmentId}-${ModuleNameInLowerCase}-${TenantId}-batch-outputfiledirectory-${AWS::AccountId}"
+          - Action:
+              - s3:PutObject              
+            Effect: Allow
+            Resource:
+              - !Sub "arn:aws:s3:::${EnvironmentId}-${ModuleNameInLowerCase}-${TenantId}-batch-inputfiledirectory-${AWS::AccountId}/*"
+              - !Sub "arn:aws:s3:::${EnvironmentId}-${ModuleNameInLowerCase}-${TenantId}-batch-outputfiledirectory-${AWS::AccountId}/*"
+          - Action:              
+              - s3:GetObject              
+            Effect: Allow
+            Resource:
+              - !Sub "arn:aws:s3:::${EnvironmentId}-${ModuleNameInLowerCase}-${TenantId}-batch-inputfiledirectory-${AWS::AccountId}/*"
+              - !Sub "arn:aws:s3:::${EnvironmentId}-${ModuleNameInLowerCase}-${TenantId}-batch-outputfiledirectory-${AWS::AccountId}/*"
+          - Action:         
+              - s3:DeleteObject              
+            Effect: Allow
+            Resource:
+              - !Sub "arn:aws:s3:::${EnvironmentId}-${ModuleNameInLowerCase}-${TenantId}-batch-inputfiledirectory-${AWS::AccountId}/*"
+              - !Sub "arn:aws:s3:::${EnvironmentId}-${ModuleNameInLowerCase}-${TenantId}-batch-outputfiledirectory-${AWS::AccountId}/*"
+          - Action:         
+              - s3:DeleteObjectVersion              
+            Effect: Allow
+            Resource:
+              - !Sub "arn:aws:s3:::${EnvironmentId}-${ModuleNameInLowerCase}-${TenantId}-batch-inputfiledirectory-${AWS::AccountId}/*"
+              - !Sub "arn:aws:s3:::${EnvironmentId}-${ModuleNameInLowerCase}-${TenantId}-batch-outputfiledirectory-${AWS::AccountId}/*"
+          - Action:         
+              - s3:GetObjectVersion              
+            Effect: Allow
+            Resource:
+              - !Sub "arn:aws:s3:::${EnvironmentId}-${ModuleNameInLowerCase}-${TenantId}-batch-inputfiledirectory-${AWS::AccountId}/*"
+              - !Sub "arn:aws:s3:::${EnvironmentId}-${ModuleNameInLowerCase}-${TenantId}-batch-outputfiledirectory-${AWS::AccountId}/*"
+          - Action:         
+              - s3:GetObjectACL              
+            Effect: Allow
+            Resource:
+              - !Sub "arn:aws:s3:::${EnvironmentId}-${ModuleNameInLowerCase}-${TenantId}-batch-inputfiledirectory-${AWS::AccountId}/*"
+              - !Sub "arn:aws:s3:::${EnvironmentId}-${ModuleNameInLowerCase}-${TenantId}-batch-outputfiledirectory-${AWS::AccountId}/*"
+          - Action:         
+              - s3:PutObjectACL              
+            Effect: Allow
+            Resource:
+              - !Sub "arn:aws:s3:::${EnvironmentId}-${ModuleNameInLowerCase}-${TenantId}-batch-inputfiledirectory-${AWS::AccountId}/*"
+              - !Sub "arn:aws:s3:::${EnvironmentId}-${ModuleNameInLowerCase}-${TenantId}-batch-outputfiledirectory-${AWS::AccountId}/*"
+      Roles:
+        - Ref: SFTPTransferFamilyRole
+
+
+  AchTransferFamilyUserIn:
+    DependsOn: "SFTPTransferFamilyRole"
+    Type: AWS::Transfer::User
+    Properties:
+      HomeDirectory: !Sub "/${EnvironmentId}-${ModuleNameInLowerCase}-${TenantId}-batch-inputfiledirectory-${AWS::AccountId}/config/app/XML"
+      HomeDirectoryType: PATH
+      Role: !GetAtt SFTPTransferFamilyRole.Arn
+      ServerId: !Ref TransferFamilyServerId
+      UserName: !Ref TransferFamilyUserIn
+      SshPublicKeys:
+        - !Ref TransferFamilyUserPublicKey
+      Tags:
+        - Key: "ORGANIZATION"
+          Value: !Ref Organization
+        - Key: "PACKAGE"
+          Value: !Ref Package
+        - Key: "VERSION"
+          Value: !Ref Version
+        - Key: "ENVIRONMENT_TYPE"
+          Value: !Ref EnvironmentType
+        - Key: "ENVIRONMENT_ID"
+          Value: !Ref EnvironmentId
+        - Key: "TENANT_ID"
+          Value: !Ref TenantId
+        - Key: "PROJECT"
+          Value: !Ref Project
+        - Key: "MODULE"
+          Value: !Ref Module
+        - Key: "PROCESSING_TYPE"
+          Value: "BATCH"
+        - Key: "TEMPORAL"
+          Value: "TAG 1"
+
+  AchTransferFamilyUserOut:
+    DependsOn: "SFTPTransferFamilyRole"
+    Type: AWS::Transfer::User
+    Properties:
+      HomeDirectory: !Sub "/${EnvironmentId}-${ModuleNameInLowerCase}-${TenantId}-batch-outputfiledirectory-${AWS::AccountId}/config/app/XML"
+      HomeDirectoryType: PATH
+      Role: !GetAtt SFTPTransferFamilyRole.Arn
+      ServerId: !Ref TransferFamilyServerId
+      UserName: !Ref TransferFamilyUserOut
+      SshPublicKeys:
+        - !Ref TransferFamilyUserPublicKey
+      Tags:
+        - Key: "ORGANIZATION"
+          Value: !Ref Organization
+        - Key: "PACKAGE"
+          Value: !Ref Package
+        - Key: "VERSION"
+          Value: !Ref Version
+        - Key: "ENVIRONMENT_TYPE"
+          Value: !Ref EnvironmentType
+        - Key: "ENVIRONMENT_ID"
+          Value: !Ref EnvironmentId
+        - Key: "TENANT_ID"
+          Value: !Ref TenantId
+        - Key: "PROJECT"
+          Value: !Ref Project
+        - Key: "MODULE"
+          Value: !Ref Module
+        - Key: "PROCESSING_TYPE"
+          Value: "BATCH"
+        - Key: "TEMPORAL"
+          Value: "TAG 1"
+
+  # BatchOutJobsInfrastructure:
+  #   Type: AWS::Serverless::Application
+  #   Properties:
+  #     Location: template-transform-out-jobs-template.yaml
+  #     Parameters:
+  #       RegionToDeploy: !Ref RegionToDeploy
+  #       SharedResourcesAccount: !Ref SharedResourcesAccount
+  #       RegionSharedResourcesAccount: !Ref RegionSharedResourcesAccount
+  #       Organization: !Ref Organization
+  #       Package: !Ref Package
+  #       Project: !Ref Project
+  #       EnvironmentId: !Ref EnvironmentId
+  #       EnvironmentType: !Ref EnvironmentType
+  #       TenantId: !Ref TenantId
+  #       Module: !Ref Module
+  #       ModuleNameInLowerCase: !Ref ModuleNameInLowerCase
+  #       Version: !Ref Version
+  #       SecretArn: !Ref SecretArn
+  #       TimeZone: !Ref TimeZone
+  #       LogLevel: !Ref LogLevel
+  #       DockerRepository: !Ref DockerRepository
+  #       DockerTag: !Ref DockerTag
+  #       ECSTaskExecutionRole: !GetAtt ECSTaskExecutionRole.Arn
+  #       ACHFileValidationsEventRole: !GetAtt ACHFileValidationsEventRole.Arn
+  #       ACHJobQueue: !Ref ACHJobQueue
+  #       OriginPacs004008: !Ref OriginPacs004008
+  #       OriginPacs004003: !Ref OriginPacs004003
+  #       OriginPacs004056: !Ref OriginPacs004056
+  #       OriginPacs002008: !Ref OriginPacs002008
+  #       OriginPacs002003: !Ref OriginPacs002003
+  #       OriginAcmt023: !Ref OriginAcmt023
+  #       OriginAcmt022008: !Ref OriginAcmt022008
+  #       profile: !Ref profile
+  #       SECRETMANAGERUSERNAME: !Ref SECRETMANAGERUSERNAME
+  #       BatchMemory: !Ref BatchMemory
+  #       BatchVcpu: !Ref BatchVcpu
+  #       LoadBalancerUrl: !Ref LoadBalancerUrl
+  #       microServicePort: !Ref microServicePort
+  #       SecurityGroupIds: !Ref SecurityGroupIds
+  #       SubnetIds: !Join
+  #         - ','
+  #         - !Ref SubnetIds        
+  #       MicroserviceAuthenticationSecretArn: !Ref MicroserviceAuthenticationSecretArn
+        # SecurityGroupACH: !Ref SecurityGroupACH
+
+  AchBatchCallEcsServiceLambda:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      FunctionName: !Join
+        - ""
+        - - !Ref EnvironmentId
+          - "-Ach-Call-Service"
+      Handler: com.cobis.cloud.ach.aws.lambda.upload.file.FileProcessingLambda::handleRequest
+      Role: !GetAtt AchLambdaRole.Arn
+      Timeout: 25
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Ref InputFileDirectoryBucket
+      Architectures:
+        - arm64
+      MemorySize: 512
+      CodeUri: bis-ach-service-microservice/target/cobis-ach-batch-transform-call-service-lambda.jar
+      Runtime: java11
+      Tracing: Active
+      VpcConfig:
+        # SecurityGroupIds: 
+        # - !Ref "SecurityGroupACH"
+        SecurityGroupIds: [ !Ref SecurityGroupIds ]
+        SubnetIds: !Ref SubnetIds
+        # SubnetIds: !Ref SubnetIds
+      Environment:
+        Variables:
+          LOG_LEVEL: !Select [6, !Split [":", !Ref AchBatchUpdatingLambdaConfiguration]]
+          SECRET_ARN: !Ref SecretArn
+          LOAD_BALANCER_URL: !Ref LoadBalancerUrl
+          LOAD_BALANCER_PORT: !Ref microServicePort
+          FILE_PROCESSING_SERVICE_PATH: !Ref FileProcessingServicePath
+          TZ: !Ref TimeZone
+          REGION: !Ref RegionToDeploy
+          MICROSERVICE_AUTHENTICATION_SECRET_ARN: !Ref MicroserviceAuthenticationSecretArn
+      Tags:
+        ORGANIZATION: !Ref Organization
+        PACKAGE: !Ref Package
+        VERSION: !Ref Version
+        ENVIRONMENT_TYPE: !Ref EnvironmentType
+        ENVIRONMENT_ID: !Ref EnvironmentId
+        TENANT_ID: !Ref TenantId
+        PROJECT: !Ref Project
+        MODULE: !Ref Module
+        PROCESSING_TYPE: !Ref ProcessingType
+
+  AchBatchCallEcsServiceLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt AchBatchCallEcsServiceLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt S3TransformInEventRule.Arn
+
+  ProcessOutInfrastructure:
+    Type: AWS::Serverless::Application
+    Properties:
+      Location: template-transform-out-jobs-template-v2.yaml
+      Parameters:
+        EnvironmentId: !Ref EnvironmentId
+        EnvironmentType: !Ref EnvironmentType
+        MicroServicePort: !Ref microServicePort
+        Module: !Ref Module
+        ModuleNameInLowerCase: !Ref ModuleNameInLowerCase
+        MicroserviceAuthenticationSecretArn: !Ref MicroserviceAuthenticationSecretArn
+        LogLevel: !Ref LogLevel
+        LoadBalancerUrl: !Ref LoadBalancerUrl
+        Organization: !Ref Organization
+        OriginPacs004008: !Ref OriginPacs004008
+        OriginPacs004003: !Ref OriginPacs004003
+        OriginPacs004056: !Ref OriginPacs004056
+        OriginPacs002008: !Ref OriginPacs002008
+        OriginPacs002003: !Ref OriginPacs002003
+        OriginAcmt023: !Ref OriginAcmt023
+        OriginAcmt022008: !Ref OriginAcmt022008
+        Package: !Ref Package
+        Project: !Ref Project
+        RegionToDeploy: !Ref RegionToDeploy
+        TenantId: !Ref TenantId
+        TimeZone: !Ref TimeZone
+        SECRETMANAGERUSERNAME: !Ref SECRETMANAGERUSERNAME
+        SecurityGroupIds: !Ref SecurityGroupIds
+        SubnetIds: !Join
+          - ","
+          - !Ref SubnetIds
+        SecretArn: !Ref SecretArn
+        Version: !Ref Version
+        SecurityGroupACH: !Ref SecurityGroupACH

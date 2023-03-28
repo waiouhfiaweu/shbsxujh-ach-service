@@ -1,0 +1,43 @@
+# pipeline
+
+parameters:
+- name: PROJECT_KEY
+  default: 'cobis-ach-service'
+- name: DEPLOY_CONFIG
+  default: 'dev1-deploy'
+- name: JAVA_PROJECT_PATH
+  default: 'bis-ach-service-parent'
+- name: DOCKERFILE_PATH
+  default: 'bis-ach-service-microservice'
+- name: MODULE
+  default: 'bis-ach-service'
+- name: DR_ENABLED
+  default: 'false'
+- name: DR_ACTIVATED
+  default: 'false'
+
+trigger:
+ branches:
+   include:
+     - 'develop'
+     - 'quality'
+     - 'staging'
+     - 'master'
+
+resources:
+  repositories:
+    - repository: templates
+      type: git #type of repository
+      name: cobis-cloud-devops
+      ref: refs/tags/v6.0.1
+
+stages:
+- template: azure/stages/templates/containerMicroserviceTemplate.yml@templates
+  parameters:
+    PROJECT_KEY: '${{ parameters.PROJECT_KEY }}'
+    DEPLOY_CONFIG: '${{ parameters.DEPLOY_CONFIG }}'
+    JAVA_PROJECT_PATH: '${{ parameters.JAVA_PROJECT_PATH }}'
+    DOCKERFILE_PATH: '${{ parameters.DOCKERFILE_PATH }}'
+    MODULE: '${{ parameters.MODULE }}'
+    DR_ENABLED: '${{ parameters.DR_ENABLED }}'
+    DR_ACTIVATED: '${{ parameters.DR_ACTIVATED }}'

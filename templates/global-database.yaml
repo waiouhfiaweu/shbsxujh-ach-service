@@ -1,0 +1,52 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: Configuración de DynamoDB
+
+Parameters: 
+  AwsRegion:
+    Type: String
+    AllowedValues: [us-east-2, us-west-2, us-east-1]
+    ConstraintDescription: must specify us-east-2,us-west-2,us-east-1.
+    Description: Región en la cual se realizará el despliegue del microservicio.
+  EnvironmentId:
+    Type: String
+    Description: "Identificador del ambiente."
+
+  DynamoJobTableBillingMode:
+    Type: String
+    Description: Tipo de cobro para la tabla de JOB en dynamo.
+
+  SuffixGlobalDynamoDbTable:
+    Description: Texto que se añade al ginal del nombre de las tablas globales.
+    Type: String
+
+  AwsDrRegion:
+    Type: String
+    Description: Region alterna que utiliza la replicacion.
+
+Outputs:
+  ACHSequentialsArn:
+    Description: Arn de la tabla ACHSequentials
+    Value: !GetAtt ACHSequentials.Arn    
+
+Resources:
+  ACHSequentials:
+    Type: AWS::DynamoDB::GlobalTable
+    Properties: 
+      AttributeDefinitions: 
+        - AttributeName: "entityName"
+          AttributeType: "S"
+        # - AttributeName: "sequential"
+        #   AttributeType: "N"
+      BillingMode: !Ref DynamoJobTableBillingMode
+      KeySchema: 
+        - AttributeName: "entityName"
+          KeyType: "HASH"
+      SSESpecification: 
+        SSEEnabled: True
+      TableName: !Join ["", [Ref: EnvironmentId, "-cobis-ach-sequentials", Ref: SuffixGlobalDynamoDbTable] ]
+      StreamSpecification: 
+        StreamViewType: "NEW_AND_OLD_IMAGES"
+      Replicas:
+        - Region: !Ref AwsRegion
+        - Region: !Ref AwsDrRegion

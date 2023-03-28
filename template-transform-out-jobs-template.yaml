@@ -1,0 +1,586 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  SAM Template for batch in ACH Service for Jobs
+
+Parameters:
+  AchBatchUpdatingLambdaConfiguration:
+    Description: "AchBatchUpdatingLambda"
+    Type: String
+    Default: "1024:0:0:0:0:0:INFO"
+  # SecurityGroupACH:
+  #  Description: Security Group Backend Private
+  #  Type: String
+  RegionToDeploy:
+    Type: String
+    AllowedValues: [us-east-2, us-west-2, us-east-1]
+    ConstraintDescription: must specify us-east-2,us-west-2,us-east-1.
+    Description: Región en la cual se realizará el despliegue del microservicio.
+  SharedResourcesAccount:
+    Description: Cuenta AWS de recursos compartidos
+    Type: String
+  RegionSharedResourcesAccount:
+    Description: Region de la Cuenta AWS de recursos compartidos donde se alojan los repos ECR
+    Type: String
+  Organization:
+    Type: String
+    Description: "Identificador del dueño componente."
+  Package:
+    Type: String
+    Description: "Identificador del paquete de productos comerciales al que se asocia el componente."
+  Project:
+    Type: String
+    Description: "Identificador del proyecto por el que se crea el componente."
+  EnvironmentId:
+    Type: String
+    Description: "Identificador del ambiente."
+  EnvironmentType:
+    Type: String
+    AllowedValues: [PRODUCTION, QUALITY, STAGING, DEVELOPMENT]
+    ConstraintDescription: must specify PRODUCTION, STAGING, QUALITY or DEVELOPMENT.
+  TenantId:
+    Type: String
+    Description: "Identificador del tenant."
+  LoadBalancerUrl:
+    Description: Url de balanceador de carga para el Ach Service
+    Type: String
+  microServicePort:
+    Description: Puerto de balanceador de carga para el Ach Service
+    Type: String
+  Module:
+    Type: String
+    Description: "Nombre del módulo o microservicio."
+  ModuleNameInLowerCase:
+    Type: String
+    Description: "Nombre del módulo o microservicio en minusculas."
+  MicroserviceAuthenticationSecretArn:
+    Type: String
+    Description: "Arn del secreto de autenticacion"
+  Version:
+    Type: String
+    Default: "1.0.0"
+    Description: "Versión del módulo o microservicio al que pertenece el componente."
+  SecretArn:
+    Type: String
+    Description: "ARN del secreto que contiene los datos de conexion a la base de datos MySQL para el microservicio."
+  TimeZone:
+    Type: String
+    Description: "Identificador de zona horaria."
+  LogLevel:
+    Type: String
+    AllowedValues: [INFO, DEBUG, WARNING, ERROR, TRACE]
+    ConstraintDescription: must specify INFO, DEBUG, WARNING or TRACE.
+    Description: "Nivel de escritura de logs del microservicio: INFO, DEBUG, WARNING, TRACE."
+  DockerRepository:
+    Type: String
+    Description: "Docker Repository."
+  DockerTag:
+    Type: String
+    Description: "Docker Tag."
+  ECSTaskExecutionRole:
+    Type: String
+    Description: "ECS Task rol de ejecucion."
+  ACHFileValidationsEventRole:
+    Type: String
+    Description: "ACH validacion de archivos. Rol de ejecucion."
+  ACHJobQueue:
+    Type: String
+    Description: "Arn de la cola batch."
+  OriginPacs004008:
+    Description: "pac de origin para el pac 004-008"
+    Type: String
+    Default: "pacs.008.001.07 - TDIR2"
+  OriginPacs004003:
+    Description: "pac de origin para el pac 004-003"
+    Type: String
+    Default: "pacs.003.001.07"
+  OriginPacs004056:
+    Description: "pac de origin para el pac 004-056"
+    Type: String
+    Default: "camt.056.001.06 - TDIR2"
+  OriginPacs002008:
+    Description: "pac de origin para el pac 002-008"
+    Type: String
+    Default: "pacs.008.001.07 - TDIR2"
+  OriginPacs002003:
+    Description: "pac de origin para el pac 002-003"
+    Type: String
+    Default: "pacs.003.001.07"
+  OriginAcmt023:
+    Description: "pac de origin para el acmt 023"
+    Type: String
+    Default: "acmt.023.001.02 - TDIR1"
+  OriginAcmt022008:
+    Description: "pac de origin para el acmt 022-008"
+    Type: String
+    Default: "pacs.008.001.07 - TDIR2"
+  profile:
+    Description: Service profile
+    Type: String
+  SECRETMANAGERUSERNAME:
+    Description: Secreto donde se encuentra las credenciales de base de datos
+    Type: String
+  BatchMemory:
+    Description: Memoria asignada al proceso batch 
+    Type: Number
+    AllowedValues: [512,1024,2048,3072,4096]
+  BatchVcpu:
+    Description: Memoria asignada al proceso batch 
+    Type: Number
+    AllowedValues: [0.25,0.5,1,2,4]
+  SubnetIds:
+    Type: CommaDelimitedList
+    Description: "Identificador de las subnets donde se ejecutará la lógica de negocio del microservicio (Deben estar entre comillas dobles y separadas por comas)."
+  SecurityGroupIds:
+    Type: String
+    Description: "Identificador del security group donde se ejecutará la lógica de negocio del microservicio."
+
+Resources:
+
+
+  AchTransformOutLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Join
+        - ""
+        - - !Ref EnvironmentId
+          - "-AchTransformOut-Lambda-Role"
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Path: /
+      Policies:
+        - PolicyName: !Sub "${EnvironmentId}-policy_allows_trout_getsecretvalue"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource:
+                  - !Ref SecretArn
+                  - !Ref MicroserviceAuthenticationSecretArn
+      Tags:
+        - Key: "ORGANIZATION"
+          Value: !Ref Organization
+        - Key: "PACKAGE"
+          Value: !Ref Package
+        - Key: "VERSION"
+          Value: !Ref Version
+        - Key: "ENVIRONMENT_TYPE"
+          Value: !Ref EnvironmentType
+        - Key: "ENVIRONMENT_ID"
+          Value: !Ref EnvironmentId
+        - Key: "TENANT_ID"
+          Value: !Ref TenantId
+        - Key: "PROJECT"
+          Value: !Ref Project
+        - Key: "MODULE"
+          Value: !Ref Module
+        - Key: "PROCESSING_TYPE"
+          Value: 'TransformOut'
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess"
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+        - "arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess"
+        - "arn:aws:iam::aws:policy/SecretsManagerReadWrite"
+
+  ACHTransformOutLambda:
+    DependsOn: "AchTransformOutLambdaRole"
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Join
+        - ""
+        - - !Ref EnvironmentId
+          - "-AchTransformOutLambda"
+      Handler: com.cobis.cloud.ach.aws.lambda.transform.out.file.HandlerTransformOutStreamEvent::handleRequest
+      CodeUri: bis-ach-service-microservice/target/cobis-ach-batch-transform-call-service-lambda.jar
+      Role: !GetAtt AchTransformOutLambdaRole.Arn
+      Timeout: 19
+      Architectures:
+        - arm64
+      MemorySize: 512
+      AutoPublishAlias: "production"
+      Runtime: java8.al2
+      Tracing: Active
+      VpcConfig:
+        SecurityGroupIds: [ !Ref SecurityGroupIds ]
+        SubnetIds: !Ref SubnetIds
+      Environment:
+        Variables:
+          LOAD_BALANCER_URL: !Ref LoadBalancerUrl
+          LOAD_BALANCER_PORT: !Ref microServicePort
+          MICROSERVICE_AUTHENTICATION_SECRET_ARN: !Ref MicroserviceAuthenticationSecretArn
+          LOG_LEVEL: !Select [6, !Split [":", !Ref AchBatchUpdatingLambdaConfiguration]] #set nivel d log info, trace, debug
+          TZ: !Ref TimeZone
+          REGION: !Ref RegionToDeploy
+          
+      Tags:
+        ORGANIZATION: !Ref Organization
+        PACKAGE: !Ref Package
+        VERSION: !Ref Version
+        ENVIRONMENT_TYPE: !Ref EnvironmentType
+        ENVIRONMENT_ID: !Ref EnvironmentId
+        TENANT_ID: !Ref TenantId
+        PROJECT: !Ref Project
+        MODULE: !Ref Module
+        PROCESSING_TYPE: "TransformOut"
+
+  S3TransformOutPacs008EventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Execute Job to generate xml output file for pacs 008
+      ScheduleExpression: "cron(0/5 * * * ? *)"
+      Name: !Sub "${EnvironmentId}-${Module}-TransformOutPacs008-CloudwatchRule"
+      Targets:
+        - Id: TransformOutPacs008
+          Arn: !GetAtt ACHTransformOutLambda.Arn 
+          InputTransformer:
+            InputTemplate: !Sub
+              - |
+                {
+                   "JobName" : "TransformOutPacs008",
+                   "originPacs" : "NA"
+                }
+              - EnvironmentId: !Ref EnvironmentId
+                Module: !Ref Module
+
+  TransformOutPacs008LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ACHTransformOutLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt S3TransformOutPacs008EventRule.Arn
+
+  S3TransformOutPacs007EventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Execute Job to generate xml output file for pacs 007
+      ScheduleExpression: "cron(0/5 * * * ? *)"
+      Name: !Sub "${EnvironmentId}-${Module}-TransformOutPacs007-CloudwatchRule"
+      Targets:
+        - Id: TransformOutPacs007
+          Arn: !GetAtt ACHTransformOutLambda.Arn 
+          InputTransformer:
+            InputTemplate: !Sub
+              - |
+                {
+                   "JobName" : "TransformOutPacs007",
+                   "originPacs" : "NA"
+                }
+              - EnvironmentId: !Ref EnvironmentId
+                Module: !Ref Module
+
+  TransformOutPacs007LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ACHTransformOutLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt S3TransformOutPacs007EventRule.Arn
+
+  S3TransformOutPacs004008EventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Execute Job to generate xml output file for pacs 004-008
+      ScheduleExpression: "cron(0/5 * * * ? *)"
+      Name: !Sub "${EnvironmentId}-${Module}-TransformOutPacs004-008-CloudwatchRule"
+      Targets:
+        - Id: TransformOutPacs004-008
+          Arn: !GetAtt ACHTransformOutLambda.Arn 
+          InputTransformer:
+            InputTemplate: !Sub
+              - |
+                {
+                   "JobName" : "TransformOutPacs004",
+                   "originPacs" : "${OriginPacs004008}"
+                }
+              - EnvironmentId: !Ref EnvironmentId
+                Module: !Ref Module
+
+  TransformOutPacs004008LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ACHTransformOutLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt S3TransformOutPacs004008EventRule.Arn
+
+  S3TransformOutPacs004003EventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Execute Job to generate xml output file for pacs 004-003
+      ScheduleExpression: "cron(0/5 * * * ? *)"
+      Name: !Sub "${EnvironmentId}-${Module}-TransformOutPacs004-003-CloudwatchRule"
+      Targets:
+        - Id: TransformOutPacs004-003
+          Arn: !GetAtt ACHTransformOutLambda.Arn 
+          InputTransformer:
+            InputTemplate: !Sub
+              - |
+                {
+                   "JobName" : "TransformOutPacs004",
+                   "originPacs" : "${OriginPacs004003}"
+                }
+              - EnvironmentId: !Ref EnvironmentId
+                Module: !Ref Module
+
+  TransformOutPacs004003LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ACHTransformOutLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt S3TransformOutPacs004003EventRule.Arn
+
+  S3TransformOutPacs004056EventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Execute Job to generate xml output file for pacs 004-056
+      ScheduleExpression: "cron(0/5 * * * ? *)"
+      Name: !Sub "${EnvironmentId}-${Module}-TransformOutPacs004-056-CloudwatchRule"
+      Targets:
+        - Id: TransformOutPacs004-056
+          Arn: !GetAtt ACHTransformOutLambda.Arn 
+          InputTransformer:
+            InputTemplate: !Sub
+              - |
+                {
+                   "JobName" : "TransformOutPacs004",
+                   "originPacs" : "${OriginPacs004056}"
+                }
+              - EnvironmentId: !Ref EnvironmentId
+                Module: !Ref Module
+
+  TransformOutPacs004056LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ACHTransformOutLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt S3TransformOutPacs004056EventRule.Arn
+
+  S3TransformOutPacs003EventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Execute Job to generate xml output file for pacs 003
+      ScheduleExpression: "cron(0/5 * * * ? *)"
+      Name: !Sub "${EnvironmentId}-${Module}-TransformOutPacs003-CloudwatchRule"
+      Targets:
+        - Id: TransformOutPacs003
+          Arn: !GetAtt ACHTransformOutLambda.Arn 
+          InputTransformer:
+            InputTemplate: !Sub
+              - |
+                {
+                   "JobName" : "TransformOutPacs003",
+                   "originPacs" : "NA"
+                }
+              - EnvironmentId: !Ref EnvironmentId
+                Module: !Ref Module
+
+  TransformOutPacs003LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ACHTransformOutLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt S3TransformOutPacs003EventRule.Arn
+
+
+  S3TransformOutPacs002008EventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Execute Job to generate xml output file for pacs 002-008
+      ScheduleExpression: "cron(0/5 * * * ? *)"
+      Name: !Sub "${EnvironmentId}-${Module}-TransformOutPacs002-008-CloudwatchRule"
+      Targets:
+        - Id: TransformOutPacs002-008
+          Arn: !GetAtt ACHTransformOutLambda.Arn 
+          InputTransformer:
+            InputTemplate: !Sub
+              - |
+                {
+                   "JobName" : "TransformOutPacs002",
+                   "originPacs" : "${OriginPacs002008}"
+                }
+              - EnvironmentId: !Ref EnvironmentId
+                Module: !Ref Module
+
+  TransformOutPacs002008LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ACHTransformOutLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt S3TransformOutPacs002008EventRule.Arn  
+  
+  S3TransformOutPacs002003EventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Execute Job to generate xml output file for pacs 002-003
+      ScheduleExpression: "cron(0/5 * * * ? *)"
+      Name: !Sub "${EnvironmentId}-${Module}-TransformOutPacs002-003-CloudwatchRule"
+      Targets:
+        - Id: TransformOutPacs002-003
+          Arn: !GetAtt ACHTransformOutLambda.Arn 
+          InputTransformer:
+            InputTemplate: !Sub
+              - |
+                {
+                   "JobName" : "TransformOutPacs002",
+                   "originPacs" : "${OriginPacs002003}"
+                }
+              - EnvironmentId: !Ref EnvironmentId
+                Module: !Ref Module
+
+  TransformOutPacs002003LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ACHTransformOutLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt S3TransformOutPacs002003EventRule.Arn  
+
+  S3TransformOutCamt056EventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Execute Job to generate xml output file for Camt 056
+      ScheduleExpression: "cron(0/5 * * * ? *)"
+      Name: !Sub "${EnvironmentId}-${Module}-TransformOutCamt056-CloudwatchRule"
+      Targets:
+        - Id: TransformOutCamt056
+          Arn: !GetAtt ACHTransformOutLambda.Arn 
+          InputTransformer:
+            InputTemplate: !Sub
+              - |
+                {
+                   "JobName" : "TransformOutCamt056",
+                   "originPacs" : "NA"
+                }
+              - EnvironmentId: !Ref EnvironmentId
+                Module: !Ref Module
+
+  TransformOutCamt056LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ACHTransformOutLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt S3TransformOutCamt056EventRule.Arn
+
+  S3TransformOutCamt029EventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Execute Job to generate xml output file for Camt 029
+      ScheduleExpression: "cron(0/5 * * * ? *)"
+      Name: !Sub "${EnvironmentId}-${Module}-TransformOutCamt029-CloudwatchRule"
+      Targets:
+        - Id: TransformOutCamt029
+          Arn: !GetAtt ACHTransformOutLambda.Arn 
+          InputTransformer:
+            InputTemplate: !Sub
+              - |
+                {
+                   "JobName" : "TransformOutCamt029",
+                   "originPacs" : "NA"
+                }
+              - EnvironmentId: !Ref EnvironmentId
+                Module: !Ref Module
+
+  TransformOutCamt029LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ACHTransformOutLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt S3TransformOutCamt029EventRule.Arn
+
+
+  S3TransformOutAcmt024EventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Execute Job to generate xml output file for Acmt 024
+      ScheduleExpression: "cron(0/5 * * * ? *)"
+      Name: !Sub "${EnvironmentId}-${Module}-TransformOutAcmt024-CloudwatchRule"
+      Targets:
+        - Id: TransformOutAcmt024
+          Arn: !GetAtt ACHTransformOutLambda.Arn 
+          InputTransformer:
+            InputTemplate: !Sub
+              - |
+                {
+                   "JobName" : "TransformOutAcmt024",
+                   "originPacs" : "NA"
+                }
+              - EnvironmentId: !Ref EnvironmentId
+                Module: !Ref Module
+
+  TransformOutAcmt024LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ACHTransformOutLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt S3TransformOutAcmt024EventRule.Arn
+
+  S3TransformOutAcmt023EventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Execute Job to generate xml output file for Acmt 023
+      ScheduleExpression: "cron(0/5 * * * ? *)"
+      Name: !Sub "${EnvironmentId}-${Module}-TransformOutAcmt023-CloudwatchRule"
+      Targets:
+        - Id: TransformOutAcmt023
+          Arn: !GetAtt ACHTransformOutLambda.Arn 
+          InputTransformer:
+            InputTemplate: !Sub
+              - |
+                {
+                   "JobName" : "TransformOutAcmt023",
+                   "originPacs" : "${OriginAcmt023}"
+                }
+              - EnvironmentId: !Ref EnvironmentId
+                Module: !Ref Module
+
+  TransformOutAcmt023LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ACHTransformOutLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt S3TransformOutAcmt023EventRule.Arn
+
+  S3TransformOutAcmt022EventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Execute Job to generate xml output file for Acmt 022
+      ScheduleExpression: "cron(0/5 * * * ? *)"
+      Name: !Sub "${EnvironmentId}-${Module}-TransformOutAcmt022-CloudwatchRule"
+      Targets:
+        - Id: TransformOutAcmt022
+          Arn: !GetAtt ACHTransformOutLambda.Arn 
+          InputTransformer:
+            InputTemplate: !Sub
+              - |
+                {
+                   "JobName" : "TransformOutAcmt022",
+                   "originPacs" : "${OriginAcmt022008}"
+                }
+              - EnvironmentId: !Ref EnvironmentId
+                Module: !Ref Module
+  
+  TransformOutAcmt022LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ACHTransformOutLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt S3TransformOutAcmt022EventRule.Arn

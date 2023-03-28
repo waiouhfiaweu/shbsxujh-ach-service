@@ -1,0 +1,193 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description:  Esta plantilla Crea una VPC , Internet gateway
+
+
+Parameters:
+
+  CIDRBlock:
+    Description: Bloque CIDR para el despliegue del Core Serverless Con Mascara 16
+    Type: String
+    Default: 10.128.0.0/16
+
+  CIDRBase:
+    Description: CIDR Base
+    Type: String
+    Default: 10.128
+
+  Mask:
+    Description: Mascara subnets
+    Type: String
+    Default: 16
+  
+  AvailabilityZones:
+    Description: Rango de zonas disponibilidad
+    Type: String
+    Default: "us-west-2a,us-west-2b"
+
+  SizeAvailabilityZones:
+    Description: Longitud de zona disponibilidad
+    Type: String
+    Default: 2
+   
+  Organization:
+    Description: Component owner identifier
+    Type: String
+    Default: Cobiscorp
+  
+  Version:
+    Description: Base platform version
+    Type: String
+    Default: 1.0.0
+
+  EnvironmentType:
+    Description: Type of environment
+    Type: String
+    Default: Production
+
+  EnvironmentId:
+    Description:  Environment identifier
+    Type: String
+    Default: prd
+
+  TenantId:
+    Description:  Tenant identifier
+    Type: String
+    Default: t1
+
+  Project:
+    Description: Identifier of the project by which the component is created
+    Type: String
+    Default: Core Serverless
+  
+  Module:
+    Description : Base platform name
+    Type: String
+    Default:  Base platform
+  
+  Package:
+    Description: The identifier of the product package to which the component is associated
+    Type: String
+    Default: Cobis Core Banking
+  
+  ProcessingType:
+    Description: Identifier of the general processing type
+    Type: String
+    Default:  GENERAL
+  
+  VpcName:
+    Description: Nombre de la VPC
+    Type: String
+    Default: cobis-core-banking-vpc
+
+Conditions:
+  isMask16: !Equals [ !Ref Mask , 16 ]
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:       
+      CidrBlock: !Ref CIDRBlock
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: !Join ['-', [!Ref EnvironmentId , !Ref VpcName]]
+        - Key: PROJECT
+          Value: !Ref Project
+        - Key: ENVIRONMENT_TYPE
+          Value: !Ref EnvironmentType
+        - Key: TENANT_ID
+          Value: !Ref TenantId
+        - Key: ORGANIZATION
+          Value: !Ref Organization
+        - Key: ENVIRONMENT_ID
+          Value: !Ref EnvironmentId
+        - Key: MODULE
+          Value: !Ref Module
+        - Key: PACKAGE
+          Value: !Ref Package
+        - Key: VERSION
+          Value: !Ref Version
+        - Key: PROCESSING_TYPE
+          Value: !Ref ProcessingType 
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Join ['-', [!Ref EnvironmentId , !Ref VpcName, "igw"]]
+        - Key: PROJECT
+          Value: !Ref Project
+        - Key: ENVIRONMENT_TYPE
+          Value: !Ref EnvironmentType
+        - Key: TENANT_ID
+          Value: !Ref TenantId
+        - Key: ORGANIZATION
+          Value: !Ref Organization
+        - Key: ENVIRONMENT_ID
+          Value: !Ref EnvironmentId
+        - Key: MODULE
+          Value: !Ref Module
+        - Key: PACKAGE
+          Value: !Ref Package
+        - Key: VERSION
+          Value: !Ref Version
+        - Key: PROCESSING_TYPE
+          Value: !Ref ProcessingType
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+  
+  NatGatewayEIP:
+    Type: AWS::EC2::EIP
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Join ['-', [!Ref EnvironmentId , !Ref VpcName, "eip"]]
+        - Key: PROJECT
+          Value: !Ref Project
+        - Key: ENVIRONMENT_TYPE
+          Value: !Ref EnvironmentType
+        - Key: TENANT_ID
+          Value: !Ref TenantId
+        - Key: ORGANIZATION
+          Value: !Ref Organization
+        - Key: ENVIRONMENT_ID
+          Value: !Ref EnvironmentId
+        - Key: MODULE
+          Value: !Ref Module
+        - Key: PACKAGE
+          Value: !Ref Package
+        - Key: VERSION
+          Value: !Ref Version
+        - Key: PROCESSING_TYPE
+          Value: !Ref ProcessingType   
+  
+Outputs:
+  VPC:
+    Description: Identificador de la VPC
+    Value: !Ref VPC 
+
+  InternetGateway:
+    Description: "InternetGateway Network"
+    Value: !Ref InternetGateway
+    
+  InternetGatewayAttachment:    
+    Description: "InternetGatewayAttachment Network"
+    Value: !Ref InternetGatewayAttachment
+
+  NatGatewayEIP:
+    Description: "NatGatewayEIP Network"
+    Value: !Ref NatGatewayEIP
+   
+  NatGatewayEIPAllocation:
+    Description: "NatGatewayEIP Allocation"
+    Value: !GetAtt NatGatewayEIP.AllocationId

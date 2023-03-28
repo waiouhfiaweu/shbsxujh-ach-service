@@ -1,0 +1,31 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: Elastic Container Registry
+
+Parameters: 
+  AwsRegion:
+    Type: String
+    AllowedValues: [us-east-2, us-west-2, us-east-1]
+    ConstraintDescription: must specify us-east-2,us-west-2,us-east-1.
+    Description: Región en la cual se realizará el despliegue del microservicio.
+  RepositoryNameText:
+    Type: String
+    Description: "Nombre del repositorio"
+  AwsAccountId:
+    Type: String
+    Description: Identificador de la cuenta AWS donde se desplegará el microservicio.        
+
+Resources:
+  ECRserviceACH:
+    Type: AWS::ECR::Repository
+    Properties:        
+        ImageScanningConfiguration:
+            ScanOnPush: true
+        ImageTagMutability: MUTABLE
+        LifecyclePolicy: 
+            LifecyclePolicyText: '{"rules":[{"rulePriority": 1,"description": "Se mantienen las 20 imagenes recientemente creadas", "selection": { "tagStatus": "any","countType": "imageCountMoreThan","countNumber": 20 },"action": {"type": "expire"}}]}'           
+            RegistryId: !Ref AwsAccountId        
+        RepositoryName: !Ref RepositoryNameText
+Outputs:    
+  Arn:
+    Value: !GetAtt ECRserviceACH.Arn        

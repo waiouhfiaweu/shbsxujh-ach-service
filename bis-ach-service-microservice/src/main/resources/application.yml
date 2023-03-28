@@ -1,0 +1,58 @@
+spring:
+  cache:
+    jcache:
+      config: classpath:ehcache.xml
+  main:
+    allow-bean-definition-overriding: true
+  jpa:
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+        physical_naming_strategy: com.cobis.cloud.infra.microservice.commons.CobisPhysicalNamingStrategy
+  datasource:
+    driverClassName: com.amazonaws.secretsmanager.sql.AWSSecretsManagerMySQLDriver
+    hikari:
+      maximumPoolSize: 10
+      minimumIdle: 0
+
+management:
+  endpoint:
+    health:
+      show-details: always
+  endpoints:
+    health:
+      sensitive: false
+  health:
+    db:
+      enabled: true
+    defaults:
+      enabled: true
+
+logging:
+  level:
+    Root: INFO
+    org.hibernate.SQL: INFO
+    org.hibernate.type.descriptor.sql.BasicBinder: INFO
+
+ach:
+  networkoperation:
+    VAR_UMBRAL_WS_CL_ACCL: "10"
+    VAR_TIME_OUT_REQUEST_WS_CL_ACCL: "30000"
+    RESPG: "9999"
+    VAR_ACH_CHANNEL: "9"
+    VAR_ACH_MODULE: "85"
+    VAR_ACH_RECEIVED_ORDER_TYPE: "R"
+    VAR_ACH_MESSAGE_RESPONSE_TO_ACCL: "{'num_or30000den_destinatario':'receiverNumberOrder','tip_orden':'250','cod_respuesta':'RA08','num_orden_ach':'num_orden_ach','num_orden_originante':'num_orden_originante','cod_pais_destinatario':'cod_pais_destinatario','cod_sucursal_destinatario':'cod_sucursal_destinatario','titular_destinatario':'titular_destinatario'}"
+    EXPIRATION_TIME: "300"
+    ENDPOINT_EVERTEC: "http://172.21.6.4/ws/TransaccionesMQ/TarjetaTransaccionMQ.svc"
+    TIMEOUT_EVERTEC: "admsoa"
+    USER_COBIS: "admsoa"
+    IP_ORIGIN: "172.31.4.56"
+
+  digitalsignature:
+    keystore-filename: "CobisDefaultKeyStore.jks"
+    keystore-type: "JKS"
+    keystore-key-security: "keystore.algncon"
+    keystore-cer-security: "cer.algncon"
+    keystore-cer-alias: "1633"

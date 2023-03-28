@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<!--if you want code order to custom maven parent use key:product -->
+    <parent>
+        <groupId>com.cobis.ach.service</groupId>
+        <artifactId>bis-ach-service-parent</artifactId>
+        <version>${revision}</version>
+        <relativePath>../../bis-ach-service-parent</relativePath>
+    </parent>
+	<properties>
+        <sonar.coverage.jacoco.xmlReportPaths>${project.basedir}/${aggregate.report.dir}</sonar.coverage.jacoco.xmlReportPaths>
+    </properties>
+	<artifactId>cobis-isoprdservice-bsl</artifactId>
+
+
+	<packaging>jar</packaging>
+	<name>${project.artifactId}</name>
+	<url>http://www.cobiscorp.com</url>
+
+	<dependencies>
+		<dependency>
+			<groupId>javax.ws.rs</groupId>
+			<artifactId>javax.ws.rs-api</artifactId>
+			<version>2.0.1</version>
+		</dependency>
+		<!--ds
+		Version 2.8.6 con vulnerabilidades
+		<dependency>
+			<groupId>com.fasterxml.jackson.core</groupId>
+			<artifactId>jackson-databind</artifactId>
+			<version>2.8.6</version>
+		</dependency>
+		Versiones disponibles 2.13.4 ; 2.14.0 ; 2.14.1
+		-->
+		<dependency>
+			<groupId>com.fasterxml.jackson.core</groupId>
+			<artifactId>jackson-databind</artifactId>
+			<version>2.13.4</version>
+		</dependency>
+		<dependency>
+			<groupId>com.cobis.ach.service</groupId>
+			<artifactId>cobis-isoswitchservice-bsl</artifactId>
+			<version>6.7.0</version>
+			<scope>compile</scope>
+		</dependency>
+
+	</dependencies>
+
+
+</project>

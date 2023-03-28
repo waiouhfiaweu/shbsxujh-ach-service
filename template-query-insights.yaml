@@ -1,0 +1,120 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  SAM Template for Query Insights in ACH Service
+
+Parameters:
+  EnvironmentId:
+    Type: String
+    Description: "Identificador del ambiente."
+  Module:
+    Type: String
+    Description: "Nombre del módulo o microservicio."
+Resources:
+  # ---------------- Ach Resources query insights -----------------------#
+  AchFrontendCreatePaymentOrderQueryDefinition:
+    Type: AWS::Logs::QueryDefinition
+    Properties:
+      LogGroupNames:
+        - "/aws/batch/job"
+        - !Sub "/aws/ecs/${EnvironmentId}-frontend-cwc"
+        - !Sub "${EnvironmentId}-ach-service-log-group"
+      Name: !Join
+        - ""
+        - - !Ref EnvironmentId
+          - !Sub "/${Module}/Frontend/CrearOrdenDePagoPacs008"
+      QueryString: "fields @timestamp, @message | sort @timestamp desc | filter @message like '{MsgId}' or (@message like 'RestServiceExecutorClient' and @message like '{Sns}') or (@message like 'RestClientExecutor' and @message like '{Sns}') | limit 50"
+
+  AchFrontendCancelPaymentQueryDefinition:
+    Type: AWS::Logs::QueryDefinition
+    Properties:
+      LogGroupNames:
+        - "/aws/batch/job"
+        - !Sub "/aws/ecs/${EnvironmentId}-frontend-cwc"
+        - !Sub "${EnvironmentId}-ach-service-log-group"
+      Name: !Join
+        - ""
+        - - !Ref EnvironmentId
+          - !Sub "/${Module}/Frontend/GenerarCancelacionPagoCamt056"
+      QueryString: "fields @timestamp, @message | sort @timestamp desc | filter @message like '{OriginalOrder}' or @message like '{OrderId}' | limit 50"
+
+  AchFrontendGenerateRefundQueryDefinition:
+    Type: AWS::Logs::QueryDefinition
+    Properties:
+      LogGroupNames:
+        - "/aws/batch/job"
+        - !Sub "/aws/ecs/${EnvironmentId}-frontend-cwc"
+        - !Sub "${EnvironmentId}-ach-service-log-group"
+      Name: !Join
+        - ""
+        - - !Ref EnvironmentId
+          - !Sub "/${Module}/Frontend/GenerarDevolucionPacs004"
+      QueryString: "fields @timestamp, @message | sort @timestamp desc | filter @message like '{TransactionId}' or @message like '{OrderId}' | limit 50"
+
+  AchTransformFileAllComponentsQueryDefinition:
+    Type: AWS::Logs::QueryDefinition
+    Properties:
+      LogGroupNames:
+        - "/aws/batch/job"
+      Name: !Join
+        - ""
+        - - !Ref EnvironmentId
+          - !Sub "/${Module}/TransformacionArchivos/TransformFileAllComponents"
+      QueryString: "fields @timestamp, @message | sort @timestamp desc | filter @message like '{MsgId}' | limit 3000"
+
+  AchTransformInByFileIdQueryDefinition:
+    Type: AWS::Logs::QueryDefinition
+    Properties:
+      LogGroupNames:
+        - "/aws/batch/job"
+      Name: !Join
+        - ""
+        - - !Ref EnvironmentId
+          - !Sub "/${Module}/TransformacionArchivos/TransformInByFileId"
+      QueryString: !Sub "fields @timestamp, @message | sort @timestamp desc | filter @logStream like '${EnvironmentId}-ach-TransformIn-JobDefinition' | filter @message like '{MsgId}' | limit 200"
+
+  AchJobProcessingGetErrorQueryDefinition:
+    Type: AWS::Logs::QueryDefinition
+    Properties:
+      LogGroupNames:
+        - "/aws/batch/job"
+      Name: !Join
+        - ""
+        - - !Ref EnvironmentId
+          - !Sub "/${Module}/TransformacionArchivos/JobProcessingGetError"
+      QueryString: !Sub "fields @timestamp, @message | sort @timestamp desc | filter @logStream like '${EnvironmentId}-ach-job-execution-processing-definition' | filter @message like 'ERROR[main]' and @message like '{MsgId}' | limit 40"
+
+  AchJobProcessingByFileIdQueryDefinition:
+    Type: AWS::Logs::QueryDefinition
+    Properties:
+      LogGroupNames:
+        - "/aws/batch/job"
+      Name: !Join
+        - ""
+        - - !Ref EnvironmentId
+          - !Sub "/${Module}/TransformacionArchivos/JobProcessingByFileId"
+      QueryString: !Sub "fields @timestamp, @message | sort @timestamp desc | filter @logStream like '${EnvironmentId}-ach-job-execution-processing-definition' | filter @message like '{MsgId}' | limit 4000"
+
+  InboundFileQueryByFileName:
+    Type: AWS::Logs::QueryDefinition
+    Properties:
+      LogGroupNames:
+        - !Sub "/aws/lambda/${EnvironmentId}-Ach-Call-Service"
+      Name: !Join
+        - ""
+        - - !Ref EnvironmentId
+          - !Sub "/${Module}/ImportacionArchivos/QueryByFileName"
+      QueryString: !Sub "fields @log, @timestamp, @message | sort @timestamp asc | filter @message like '{fileName}' | limit 4000"
+
+  InboundFileQueryByRequestId:
+    Type: AWS::Logs::QueryDefinition
+    Properties:
+      LogGroupNames:
+        - !Sub "/aws/lambda/${EnvironmentId}-Ach-Call-Service"
+        - !Sub "/aws/lambda/${EnvironmentId}-${Module}-lambda-batch-processing-caller"
+        - !Sub "${EnvironmentId}-${Module}-service-log-group"
+      Name: !Join
+        - ""
+        - - !Ref EnvironmentId
+          - !Sub "/${Module}/ImportacionArchivos/QueryByRequestId"
+      QueryString: !Sub "fields @log, @timestamp, @message | sort @timestamp asc | filter @message like '{requestId}' | limit 4000"

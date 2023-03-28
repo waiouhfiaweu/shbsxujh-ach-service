@@ -1,0 +1,542 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Ach-service
+  
+  SAM Template for ach-service cloudwatch dashboard
+
+Parameters:
+    EnvironmentId:
+        Type: String
+        Description: "Identificador del ambiente."
+    MODULE:
+        Type: String
+        Description: "Modulo."
+    RegionToDeploy:
+        Type: String
+        Description: "Region donde se realiza el despliegue"
+    AccountToDeploy:
+        Type: String
+        Description: "Cuenta donde se realiza el despliegue"
+    TargetGroupName:
+        Type: String
+        Description: "Nombre del target group que se monitorea"
+    LoadBalancerName:
+        Type: String
+        Description: "Nombre del load balancer que se monitorea"
+    
+Resources:
+
+  ########################################################################
+  ### ****  CloudWatch Dashboard **** ###
+
+  AchServiceDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub "${EnvironmentId}-${MODULE}-service"
+      DashboardBody: !Sub | 
+            {
+                "widgets": [
+                    {
+                        "height": 1,
+                        "width": 24,
+                        "y": 13,
+                        "x": 0,
+                        "type": "text",
+                        "properties": {
+                            "markdown": "# APIs"
+                        }
+                    },
+                    {
+                        "height": 1,
+                        "width": 24,
+                        "y": 0,
+                        "x": 0,
+                        "type": "text",
+                        "properties": {
+                            "markdown": "# Lambdas"
+                        }
+                    },
+                    {
+                        "height": 1,
+                        "width": 24,
+                        "y": 20,
+                        "x": 0,
+                        "type": "text",
+                        "properties": {
+                            "markdown": "# RDS"
+                        }
+                    },
+                    {
+                        "height": 6,
+                        "width": 24,
+                        "y": 7,
+                        "x": 0,
+                        "type": "metric",
+                        "properties": {
+                            "metrics": [
+                                [ "AWS/Lambda", "Duration", "FunctionName", "${EnvironmentId}-AchExecutor" ],
+                                [ ".", "Errors", ".", ".", { "visible": false } ],
+                                [ ".", "ConcurrentExecutions", ".", ".", { "visible": false } ],
+                                [ ".", "Invocations", ".", ".", { "visible": false } ],
+                                [ ".", "Throttles", ".", ".", { "visible": false } ],
+                                [ ".", "Duration", ".", "${EnvironmentId}-AchJobLamda" ]
+                            ],
+                            "view": "timeSeries",
+                            "stacked": false,
+                            "region": "${RegionToDeploy}",
+                            "period": 300,
+                            "title": "Duration",
+                            "stat": "Average"
+                        }
+                    },
+                    {
+                        "height": 6,
+                        "width": 6,
+                        "y": 1,
+                        "x": 6,
+                        "type": "metric",
+                        "properties": {
+                            "metrics": [
+                                [ "AWS/Lambda", "Duration", "FunctionName", "${EnvironmentId}-AchExecutor", { "visible": false } ],
+                                [ ".", "Errors", ".", "." ],
+                                [ ".", "ConcurrentExecutions", ".", ".", { "visible": false } ],
+                                [ ".", "Invocations", ".", ".", { "visible": false } ],
+                                [ ".", "Throttles", ".", ".", { "visible": false } ],
+                                [ ".", "Errors", ".", "${EnvironmentId}-AchJobLamda" ]
+                            ],
+                            "view": "timeSeries",
+                            "stacked": false,
+                            "region": "${RegionToDeploy}",
+                            "period": 300,
+                            "title": "Errors",
+                            "stat": "Average"
+                        }
+                    },
+                    {
+                        "height": 6,
+                        "width": 6,
+                        "y": 1,
+                        "x": 0,
+                        "type": "metric",
+                        "properties": {
+                            "metrics": [
+                                [ "AWS/Lambda", "Duration", "FunctionName", "${EnvironmentId}-AchExecutor", { "visible": false } ],
+                                [ ".", "Errors", ".", ".", { "visible": false } ],
+                                [ ".", "ConcurrentExecutions", ".", "." ],
+                                [ ".", "Invocations", ".", ".", { "visible": false } ],
+                                [ ".", "Throttles", ".", ".", { "visible": false } ],
+                                [ ".", "ConcurrentExecutions", ".", "${EnvironmentId}-AchJobLamda" ]
+                            ],
+                            "view": "timeSeries",
+                            "stacked": false,
+                            "region": "${RegionToDeploy}",
+                            "period": 300,
+                            "title": "Concurrent Executions",
+                            "stat": "Average"
+                        }
+                    },
+                    {
+                        "height": 6,
+                        "width": 6,
+                        "y": 1,
+                        "x": 18,
+                        "type": "metric",
+                        "properties": {
+                            "metrics": [
+                                [ "AWS/Lambda", "Duration", "FunctionName", "${EnvironmentId}-AchExecutor", { "visible": false } ],
+                                [ ".", "Errors", ".", ".", { "visible": false } ],
+                                [ ".", "ConcurrentExecutions", ".", ".", { "visible": false } ],
+                                [ ".", "Invocations", ".", "." ],
+                                [ ".", "Throttles", ".", ".", { "visible": false } ],
+                                [ ".", "Invocations", ".", "${EnvironmentId}-AchJobLamda" ]
+                            ],
+                            "view": "timeSeries",
+                            "stacked": false,
+                            "region": "${RegionToDeploy}",
+                            "period": 300,
+                            "title": "Invocations",
+                            "stat": "Average"
+                        }
+                    },
+                    {
+                        "height": 6,
+                        "width": 6,
+                        "y": 1,
+                        "x": 12,
+                        "type": "metric",
+                        "properties": {
+                            "metrics": [
+                                [ "AWS/Lambda", "Duration", "FunctionName", "${EnvironmentId}-AchExecutor", { "visible": false } ],
+                                [ ".", "Errors", ".", ".", { "visible": false } ],
+                                [ ".", "ConcurrentExecutions", ".", ".", { "visible": false } ],
+                                [ ".", "Invocations", ".", ".", { "visible": false } ],
+                                [ ".", "Throttles", ".", "." ],
+                                [ "...", "${EnvironmentId}-AchJobLamda" ]
+                            ],
+                            "view": "timeSeries",
+                            "stacked": false,
+                            "region": "${RegionToDeploy}",
+                            "period": 300,
+                            "title": "Throttles",
+                            "stat": "Average"
+                        }
+                    },
+                    {
+                        "height": 6,
+                        "width": 6,
+                        "y": 14,
+                        "x": 6,
+                        "type": "metric",
+                        "properties": {
+                            "metrics": [
+                                [ "AWS/ApiGateway", "Latency", "ApiName", "${EnvironmentId} - COBIS ${MODULE} executor API", { "visible": false } ],
+                                [ ".", "IntegrationLatency", ".", "." ],
+                                [ ".", "5XXError", ".", ".", { "visible": false } ],
+                                [ ".", "Count", ".", ".", { "visible": false } ]
+                            ],
+                            "view": "timeSeries",
+                            "stacked": false,
+                            "region": "${RegionToDeploy}",
+                            "period": 300,
+                            "stat": "Average",
+                            "title": "Integration Latency"
+                        }
+                    },
+                    {
+                        "height": 6,
+                        "width": 6,
+                        "y": 14,
+                        "x": 12,
+                        "type": "metric",
+                        "properties": {
+                            "metrics": [
+                                [ "AWS/ApiGateway", "Latency", "ApiName", "${EnvironmentId} - COBIS ${MODULE} executor API", { "visible": false } ],
+                                [ ".", "IntegrationLatency", ".", ".", { "visible": false } ],
+                                [ ".", "5XXError", ".", "." ],
+                                [ ".", "Count", ".", ".", { "visible": false } ]
+                            ],
+                            "view": "timeSeries",
+                            "stacked": false,
+                            "region": "${RegionToDeploy}",
+                            "period": 300,
+                            "stat": "Average",
+                            "title": "5XXError"
+                        }
+                    },
+                    {
+                        "height": 6,
+                        "width": 6,
+                        "y": 14,
+                        "x": 18,
+                        "type": "metric",
+                        "properties": {
+                            "metrics": [
+                                [ "AWS/ApiGateway", "Latency", "ApiName", "${EnvironmentId} - COBIS ${MODULE} executor API", { "visible": false } ],
+                                [ ".", "IntegrationLatency", ".", ".", { "visible": false } ],
+                                [ ".", "5XXError", ".", ".", { "visible": false } ],
+                                [ ".", "Count", ".", "." ]
+                            ],
+                            "view": "timeSeries",
+                            "stacked": false,
+                            "region": "${RegionToDeploy}",
+                            "period": 300,
+                            "title": "Count",
+                            "stat": "Average"
+                        }
+                    },
+                    {
+                        "height": 6,
+                        "width": 6,
+                        "y": 14,
+                        "x": 0,
+                        "type": "metric",
+                        "properties": {
+                            "metrics": [
+                                [ "AWS/ApiGateway", "Latency", "ApiName", "${EnvironmentId} - COBIS ${MODULE} executor API" ],
+                                [ ".", "IntegrationLatency", ".", ".", { "visible": false } ],
+                                [ ".", "5XXError", ".", ".", { "visible": false } ],
+                                [ ".", "Count", ".", ".", { "visible": false } ]
+                            ],
+                            "view": "timeSeries",
+                            "stacked": false,
+                            "region": "${RegionToDeploy}",
+                            "period": 300,
+                            "stat": "Average",
+                            "title": "Latency"
+                        }
+                    },
+                    {
+                        "height": 6,
+                        "width": 6,
+                        "y": 21,
+                        "x": 0,
+                        "type": "metric",
+                        "properties": {
+                            "metrics": [
+                                [ "AWS/RDS", "RowLockTime", "DBClusterIdentifier", "${EnvironmentId}-gp-mysql-aurora-cluster-rds" ],
+                                [ ".", "Deadlocks", ".", "." ]
+                            ],
+                            "view": "timeSeries",
+                            "stacked": true,
+                            "region": "${RegionToDeploy}",
+                            "period": 60,
+                            "stat": "Average"
+                        }
+                    },
+                    {
+                        "height": 6,
+                        "width": 6,
+                        "y": 21,
+                        "x": 6,
+                        "type": "metric",
+                        "properties": {
+                            "view": "timeSeries",
+                            "stacked": true,
+                            "metrics": [
+                                [ "AWS/RDS", "CPUUtilization", "DBClusterIdentifier", "${EnvironmentId}-gp-mysql-aurora-cluster-rds" ]
+                            ],
+                            "region": "${RegionToDeploy}",
+                            "title": "DB CPUUtilization",
+                            "period": 60
+                        }
+                    },
+                    {
+                        "height": 6,
+                        "width": 6,
+                        "y": 21,
+                        "x": 12,
+                        "type": "metric",
+                        "properties": {
+                            "view": "timeSeries",
+                            "stacked": true,
+                            "metrics": [
+                                [ "AWS/RDS", "FreeableMemory", "DBClusterIdentifier", "${EnvironmentId}-gp-mysql-aurora-cluster-rds" ]
+                            ],
+                            "region": "${RegionToDeploy}",
+                            "period": 300,
+                            "title": "Freeable Memory"
+                        }
+                    },
+                    {
+                        "height": 6,
+                        "width": 6,
+                        "y": 21,
+                        "x": 18,
+                        "type": "metric",
+                        "properties": {
+                            "metrics": [
+                                [ "AWS/RDS", "ConnectionAttempts", "DBClusterIdentifier", "${EnvironmentId}-gp-mysql-aurora-cluster-rds", { "visible": false } ],
+                                [ ".", "DatabaseConnections", ".", ".", { "stat": "Maximum" } ],
+                                [ ".", "AbortedClients", ".", ".", { "visible": false } ]
+                            ],
+                            "view": "timeSeries",
+                            "stacked": true,
+                            "region": "${RegionToDeploy}",
+                            "period": 60,
+                            "stat": "Average",
+                            "title": "Database Connections"
+                        }
+                    },
+                    {
+                        "height": 1,
+                        "width": 24,
+                        "y": 27,
+                        "x": 0,
+                        "type": "text",
+                        "properties": {
+                            "markdown": "# Step Functions"
+                        }
+                    },
+                    {
+                        "height": 6,
+                        "width": 6,
+                        "y": 28,
+                        "x": 0,
+                        "type": "metric",
+                        "properties": {
+                            "metrics": [
+                                [ "AWS/States", "ExecutionTime", "StateMachineArn", "arn:aws:states:${RegionToDeploy}:${AccountToDeploy}:stateMachine:${EnvironmentId}-${MODULE}-LoadFile-StepFunction", { "stat": "Average", "id": "m0", "region": "${RegionToDeploy}" } ]
+                            ],
+                            "legend": {
+                                "position": "bottom"
+                            },
+                            "period": 300,
+                            "view": "timeSeries",
+                            "stacked": false,
+                            "start": "-PT3H",
+                            "end": "P0D",
+                            "title": "ExecutionTime",
+                            "region": "${RegionToDeploy}"
+                        }
+                    },
+                    {
+                        "height": 6,
+                        "width": 18,
+                        "y": 34,
+                        "x": 6,
+                        "type": "metric",
+                        "properties": {
+                            "metrics": [
+                                [ "AWS/States", "ExecutionsSucceeded", "StateMachineArn", "arn:aws:states:${RegionToDeploy}:${AccountToDeploy}:stateMachine:${EnvironmentId}-${MODULE}-LoadFile-StepFunction", { "stat": "Sum", "id": "m0", "region": "${RegionToDeploy}" } ]
+                            ],
+                            "legend": {
+                                "position": "bottom"
+                            },
+                            "period": 300,
+                            "view": "timeSeries",
+                            "stacked": false,
+                            "start": "-PT3H",
+                            "end": "P0D",
+                            "title": "ExecutionsSucceeded",
+                            "region": "${RegionToDeploy}"
+                        }
+                    },
+                    {
+                        "height": 6,
+                        "width": 6,
+                        "y": 28,
+                        "x": 12,
+                        "type": "metric",
+                        "properties": {
+                            "metrics": [
+                                [ "AWS/States", "ExecutionsFailed", "StateMachineArn", "arn:aws:states:${RegionToDeploy}:${AccountToDeploy}:stateMachine:${EnvironmentId}-${MODULE}-LoadFile-StepFunction", { "stat": "Sum", "id": "m0", "region": "${RegionToDeploy}" } ]
+                            ],
+                            "legend": {
+                                "position": "bottom"
+                            },
+                            "period": 300,
+                            "view": "timeSeries",
+                            "stacked": false,
+                            "start": "-PT3H",
+                            "end": "P0D",
+                            "title": "ExecutionsFailed",
+                            "region": "${RegionToDeploy}"
+                        }
+                    },
+                    {
+                        "height": 6,
+                        "width": 6,
+                        "y": 28,
+                        "x": 18,
+                        "type": "metric",
+                        "properties": {
+                            "metrics": [
+                                [ "AWS/States", "ExecutionsThrottled", "StateMachineArn", "arn:aws:states:${RegionToDeploy}:${AccountToDeploy}:stateMachine:${EnvironmentId}-${MODULE}-LoadFile-StepFunction", { "stat": "Sum", "id": "m0", "region": "${RegionToDeploy}" } ]
+                            ],
+                            "legend": {
+                                "position": "bottom"
+                            },
+                            "period": 300,
+                            "view": "timeSeries",
+                            "stacked": false,
+                            "start": "-PT3H",
+                            "end": "P0D",
+                            "title": "ExecutionsThrottled",
+                            "region": "${RegionToDeploy}"
+                        }
+                    },
+                    {
+                        "height": 6,
+                        "width": 6,
+                        "y": 34,
+                        "x": 0,
+                        "type": "metric",
+                        "properties": {
+                            "metrics": [
+                                [ "AWS/States", "ExecutionsAborted", "StateMachineArn", "arn:aws:states:${RegionToDeploy}:${AccountToDeploy}:stateMachine:${EnvironmentId}-${MODULE}-LoadFile-StepFunction", { "stat": "Sum", "id": "m0", "region": "${RegionToDeploy}" } ]
+                            ],
+                            "legend": {
+                                "position": "bottom"
+                            },
+                            "period": 300,
+                            "view": "timeSeries",
+                            "stacked": false,
+                            "start": "-PT3H",
+                            "end": "P0D",
+                            "title": "ExecutionsAborted",
+                            "region": "${RegionToDeploy}"
+                        }
+                    },
+                    {
+                        "height": 6,
+                        "width": 6,
+                        "y": 28,
+                        "x": 6,
+                        "type": "metric",
+                        "properties": {
+                            "metrics": [
+                                [ "AWS/States", "ExecutionsTimedOut", "StateMachineArn", "arn:aws:states:${RegionToDeploy}:${AccountToDeploy}:stateMachine:${EnvironmentId}-${MODULE}-LoadFile-StepFunction", { "stat": "Sum", "id": "m0", "region": "${RegionToDeploy}" } ]
+                            ],
+                            "legend": {
+                                "position": "bottom"
+                            },
+                            "period": 300,
+                            "view": "timeSeries",
+                            "stacked": false,
+                            "start": "-PT3H",
+                            "end": "P0D",
+                            "title": "ExecutionsTimedOut",
+                            "region": "${RegionToDeploy}"
+                        }
+                    },
+                    {
+                        "height": 6,
+                        "width": 6,
+                        "y": 41,
+                        "x": 0,
+                        "type": "metric",
+                        "properties": {
+                            "view": "timeSeries",
+                            "stacked": false,
+                            "metrics": [
+                                [ "AWS/ApplicationELB", "RequestCountPerTarget", "TargetGroup", "${TargetGroupName}" ]
+                            ],
+                            "region": "${RegionToDeploy}",
+                            "title": "RequestCount"
+                        }
+                    },
+                    {
+                        "height": 6,
+                        "width": 6,
+                        "y": 41,
+                        "x": 6,
+                        "type": "metric",
+                        "properties": {
+                            "view": "timeSeries",
+                            "stacked": false,
+                            "metrics": [
+                                [ "AWS/ApplicationELB", "HTTPCode_Target_5XX_Count", "TargetGroup", "${TargetGroupName}", "LoadBalancer", "${LoadBalancerName}" ]
+                            ],
+                            "region": "${RegionToDeploy}",
+                            "title": "HTTPCode_Target_5XX_Count"
+                        }
+                    },
+                    {
+                        "height": 6,
+                        "width": 12,
+                        "y": 41,
+                        "x": 12,
+                        "type": "metric",
+                        "properties": {
+                            "view": "timeSeries",
+                            "stacked": false,
+                            "metrics": [
+                                [ "AWS/ApplicationELB", "TargetResponseTime", "TargetGroup", "${TargetGroupName}", "LoadBalancer", "${LoadBalancerName}" ]
+                            ],
+                            "region": "${RegionToDeploy}",
+                            "title": "TargetResponseTime"
+                        }
+                    },
+                    {
+                        "height": 1,
+                        "width": 24,
+                        "y": 40,
+                        "x": 0,
+                        "type": "text",
+                        "properties": {
+                            "markdown": "# TargetGroup"
+                        }
+                    }
+                ]
+            }

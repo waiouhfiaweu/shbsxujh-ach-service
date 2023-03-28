@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<Configuration status="TRACE" verbose="true"> 
+  <Properties> 
+    <Property name="filename">microadmin.log</Property>
+  </Properties>  
+  <Appenders> 
+    <RollingRandomAccessFile name="CRollingRandomAccessFile" fileName="logs/${filename}" filePattern="logs/$${date:yyyy-MM}/${filename}.%d{yyyy-MM-dd-HH}-%i.log.gz"> 
+      <DefaultRolloverStrategy max="50"/>  
+      <PatternLayout> 
+        <Pattern>%d{MMdd HHmmss,SSS} %-5.5p[%-.6t][%c{1}][%M][x-request-id=%X{requestId}]%m%n%throwable{full}</Pattern> 
+      </PatternLayout>  
+      <Policies> 
+        <TimeBasedTriggeringPolicy modulate="true" interval="1"/>  
+        <SizeBasedTriggeringPolicy size="200 MB"/> 
+      </Policies> 
+    </RollingRandomAccessFile>
+    <Console name="STDOUT" target="SYSTEM_OUT">
+      <PatternLayout>
+        <Pattern>%d{MMdd HHmmss,SSS} %-5.5p[%-.6t][%c{1}][%M][x-request-id=%X{requestId}]%m%n%throwable{full}</Pattern>
+      </PatternLayout>
+    </Console>
+
+  </Appenders>
+  <Loggers> 
+    <Root level="INFO" includeLocation="false">
+    <!--AppenderRef ref="CRollingRandomAccessFile"/-->
+      <AppenderRef ref="STDOUT"/> 
+    </Root>  
+    <Logger name="org.springframework" level="INFO" additivity="true"/>
+    <!-- <Logger name="org.hibernate" level="INFO" additivity="true"/>-->
+    <Logger name="org.hibernate.SQL" level="TRACE" additivity="true"/>
+    <Logger name="CTS.class com.cobis.core.admin" level="DEBUG" additivity="true"/>
+  </Loggers>  
+</Configuration>

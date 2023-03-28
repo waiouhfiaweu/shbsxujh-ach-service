@@ -1,0 +1,1153 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  SAM Template for batch in ACH Service
+
+Parameters:
+  AwsAccountId:
+    Type: String
+    Description: Identificador de la cuenta AWS donde se desplegará el microservicio.
+  AwsRegion:
+    Type: String
+    AllowedValues: [us-east-2, us-west-2, us-east-1]
+    ConstraintDescription: must specify us-east-2,us-west-2,us-east-1.
+    Description: Región en la cual se realizará el despliegue del microservicio.
+  Organization:
+    Type: String
+    Description: "Identificador del dueño componente."
+  Package:
+    Type: String
+    Description: "Identificador del paquete de productos comerciales al que se asocia el componente."
+  Project:
+    Type: String
+    Description: "Identificador del proyecto por el que se crea el componente."
+  EnvironmentId:
+    Type: String
+    Description: "Identificador del ambiente."
+  EnvironmentIdBase:
+    Type: String
+    Description: "Prefijo de recursos de la infraestructura base para referenciar en el microservicio. Pueden ser [dev, qa, stg, prod u otro personalizado]"
+  EnvironmentType:
+    Type: String
+    AllowedValues: [PRODUCTION, QUALITY, STAGING, DEVELOPMENT]
+    ConstraintDescription: must specify PRODUCTION, STAGING, QUALITY or DEVELOPMENT.
+  TenantId:
+    Type: String
+    Description: "Identificador del tenant."
+  Module:
+    Type: String
+    Description: "Nombre del módulo o microservicio."
+  ModuleNameInLowerCase:
+    Type: String
+    Description: "Nombre del módulo o microservicio en minusculas."
+  Version:
+    Type: String
+    Default: "1.0.0"
+    Description: "Versión del módulo o microservicio al que pertenece el componente."
+  SubnetIds:
+    Type: CommaDelimitedList
+    Description: "Identificador de las subnets donde se ejecutará la lógica de negocio del microservicio (Deben estar entre comillas dobles y separadas por comas)."
+  LoadBalancerUrl:
+    Type: String
+    Description: "Url del balanceador donde se encuentra"
+  microServicePort:
+    Type: String
+    Description: "Puerto del balanceador donde se encuentra"
+  SecurityGroupIds:
+    Type: String
+    Description: "Identificador del security group donde se ejecutará la lógica de negocio del microservicio."
+  TimeZone:
+    Type: String
+    Description: "Identificador de zona horaria."
+  LogLevel:
+    Type: String
+    AllowedValues: [INFO, DEBUG, WARNING, ERROR, TRACE]
+    ConstraintDescription: must specify INFO, DEBUG, WARNING or TRACE.
+    Description: "Nivel de escritura de logs del microservicio: INFO, DEBUG, WARNING, TRACE."
+  ProcessingType:
+    Type: String
+    Description: "Tipo de procesamiento."
+  AWSBatchServiceRole:
+    Type: String
+    Description: "Rol para el servicio del entorno computacional en AWS Batch."
+  DockerTag:
+    Type: String
+    Description: "Docker Tag."
+  MicroserviceSecretArn:
+    Type: String
+    Description: "Arn del secreto de base de datos"
+  MicroserviceAuthenticationSecretArn:
+    Type: String
+    Description: "Arn del secreto de autenticacion"
+  DockerEcrRepositoryUrl:
+    Type: String
+    Description: "Repositorio donde se encuentra la imagen a usar"
+  AchBatchUpdatingLambdaConfiguration:
+    Description: "AchBatchUpdatingLambda"
+    Type: String
+    Default: "1024:0:0:0:0:0:INFO"
+  ConnectionConfigName0:
+    Type: String
+    Description: "Nombre de la conexion del api"
+  ConnectionConfigUrl0:
+    Type: String
+    Description: "Url de enlace del api"
+  ConnectionConfigPath0:
+    Type: String
+    Description: "Path de enlace del api"
+  ConnectionConfigTimeout0:
+    Type: String
+    Description: "Timeout de la conexion"
+  ConnectionConfigApikey0:
+    Type: String
+    Description: "Apikey de la conexion"
+  ConnectionConfigName1:
+    Type: String
+    Description: "Nombre de la conexion del api"
+  ConnectionConfigUrl1:
+    Type: String
+    Description: "Url de enlace del api"
+  ConnectionConfigPath1:
+    Type: String
+    Description: "Path de enlace del api"
+  ConnectionConfigTimeout1:
+    Type: String
+    Description: "Timeout de la conexion"
+  ConnectionConfigApikey1:
+    Type: String
+    Description: "Apikey de la conexion"
+  ConnectionConfigName2:
+    Type: String
+    Description: "Nombre de la conexion del api"
+  ConnectionConfigUrl2:
+    Type: String
+    Description: "Url de enlace del api"
+  ConnectionConfigPath2:
+    Type: String
+    Description: "Path de enlace del api"
+  ConnectionConfigTimeout2:
+    Type: String
+    Description: "Timeout de la conexion"
+  ConnectionConfigApikey2:
+    Type: String
+    Description: "Apikey de la conexion"
+  LogRetentionDays:
+    Type: Number
+    Description: "dias de retencion para logs"
+  profile:
+    Description: Service profile
+    Type: String
+  SECRETMANAGERUSERNAME:
+    Description: Secreto donde se encuentra las credenciales de base de datos
+    Type: String
+  #TODO: Estos valores se deben tomar de un secreto, se cambia para probar en QA hasta que se cree el secreto
+  AuthenticationPathLogin:
+    Description: Path de autenticacion del usuario de oficiales
+    Type: String
+  AuthenticationPathRole:
+    Description: Path de autenticacion del usuario de oficiales
+    Type: String
+  AWSPOOLID:
+    Description: AWS POOL ID Cognito
+    Type: String
+  AWSPOOLIDAPP:
+    Description: AWS POOL APP ID Cognito
+    Type: String
+  integrationAdminCatalogsBaseUrl:
+    Description: Url del api de admin generico.
+    Type: String
+  integrationAdminCatalogsPath:
+    Description: Path del api de admin generico.
+    Type: String
+  integrationAdminCatalogsTimeout:
+    Description: Timeout del api de admin generico.
+    Type: String
+  IntegrationDdaBaseUrl:
+    Description: Url del api de negocio de demand deposits generico
+    Type: String
+  IntegrationDdaTrnBaseUrl:
+    Description: Url del api de negocio de demand deposits transaccional
+    Type: String
+  IntegrationDdaApikey:
+    Description: ApiKey del api de negocio de demand deposits
+    Type: String
+  IntegrationDdaTrnApikey:
+    Description: ApiKey del api de negocio de demand deposits transaccional
+    Type: String
+  IntegrationBaseLoanURL:
+    Description: Url del api de negocio de prestamos
+    Type: String
+  IntegrationBasePaymentLoanURL:
+    Description: Url del api de negocio de pagos de prestamos
+    Type: String
+  IntegrationBaseTransactionalLoanURL:
+    Description: Url del api de negocio transaccional de prestamos
+    Type: String
+  IntegrationLoanApikey:
+    Description: ApiKey del api de negocio prestamos
+    Type: String
+  IntegrationLoanPaymentsApikey:
+    Description: ApiKey del api de negocio de pagos de prestamos
+    Type: String
+  IntegrationLoanTransactionalApikey:
+    Description: ApiKey del api de negocio transaccional de prestamos
+    Type: String
+  IntegrationDdaReadTimeout:
+    Description: Integration Demand Deposits Read Timeout
+    Type: Number
+  IntegrationDdaConnectTimeout:
+    Description: Integration Demand Connect Timeout
+    Type: Number
+  IntegrationLoanReadTimeout:
+    Description: Integration Loans Read Timeout
+    Type: Number
+  IntegrationLoanConnectTimeout:
+    Description: Integration Loans Connect Timeout
+    Type: Number
+  AchSqlTimeout:
+    Description: Timeout para query de ordenes
+    Type: String
+  BatchMemory:
+    Description: Memoria asignada al proceso batch 
+    Type: Number
+    AllowedValues: [512,1024,2048,3072,4096]
+  BatchVcpu:
+    Description: Memoria asignada al proceso batch 
+    Type: Number
+    AllowedValues: [0.25,0.5,1,2,4]
+  RepositoryNameText:
+    Type: String
+    Description: "Nombre del repositorio"
+    Default: 'cobis/service/ach'
+
+Resources:
+
+  JobComputeEnvironment:
+    Type: AWS::Batch::ComputeEnvironment
+    Properties:
+      ComputeEnvironmentName: !Sub "${EnvironmentId}-${Module}-job-execution-compute-environment"
+      ComputeResources:
+        SecurityGroupIds: [!Ref SecurityGroupIds]
+        Subnets: !Ref SubnetIds
+        MaxvCpus: 160
+        Type: FARGATE
+      ServiceRole: !Ref AWSBatchServiceRole
+      Type: MANAGED
+      Tags:
+        {
+          "ORGANIZATION": !Ref Organization,
+          "PACKAGE": !Ref Package,
+          "VERSION": !Ref Version,
+          "ENVIRONMENT_TYPE": !Ref EnvironmentType,
+          "ENVIRONMENT_ID": !Ref EnvironmentId,
+          "TENANT_ID": !Ref TenantId,
+          "PROJECT": !Ref Project,
+          "MODULE": !Ref Module,
+          "PROCESSING_TYPE": !Ref ProcessingType,
+        }
+
+  ACHJobQueue:
+    Type: AWS::Batch::JobQueue
+    Properties:
+      ComputeEnvironmentOrder:
+        - Order: 1
+          ComputeEnvironment: !Ref JobComputeEnvironment
+      JobQueueName: !Sub "${EnvironmentId}-${Module}-job-execution-compute-queue"
+      Priority: 1
+      State: ENABLED
+      Tags:
+        {
+          "ORGANIZATION": !Ref Organization,
+          "PACKAGE": !Ref Package,
+          "VERSION": !Ref Version,
+          "ENVIRONMENT_TYPE": !Ref EnvironmentType,
+          "ENVIRONMENT_ID": !Ref EnvironmentId,
+          "TENANT_ID": !Ref TenantId,
+          "PROJECT": !Ref Project,
+          "MODULE": !Ref Module,
+          "PROCESSING_TYPE": !Ref ProcessingType,
+        }
+
+  JobIamPolicies:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyName: !Sub "${EnvironmentId}-${Module}-job-execution-policies"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action:
+              - secretsmanager:DescribeSecret
+              - secretsmanager:GetSecretValue
+              - secretsmanager:ListSecrets
+            Effect: Allow
+            Resource: [!Ref MicroserviceSecretArn,!Ref MicroserviceAuthenticationSecretArn]
+          - Action:
+              - ecr:GetAuthorizationToken
+            Effect: Allow
+            Resource:
+              - !Sub "arn:aws:ecr:${AwsRegion}:${AwsAccountId}:repository/${RepositoryNameText}"
+          - Action:
+              - ecr:GetAuthorizationToken
+              - ecr:BatchCheckLayerAvailability
+              - ecr:GetDownloadUrlForLayer
+              - ecr:BatchGetImage
+            Effect: Allow
+            Resource:
+              - !Sub "arn:aws:ecr:${AwsRegion}:${AwsAccountId}:repository/${RepositoryNameText}"
+            # Resource: "*"
+          - Action:
+              - kms:Decrypt
+              - kms:Encrypt
+            Effect: Allow
+            Resource:
+              - !Sub arn:aws:kms:${AwsRegion}:${AwsAccountId}:alias/${EnvironmentId}/SecretsManagerKeyAlias
+          - Action:
+              - events:PutEvents
+            Effect: Allow
+            Resource:
+              - !Sub arn:aws:events:${AwsRegion}:${AwsAccountId}:event-bus/${EnvironmentId}-notification-bus-channels
+          - Action:
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Effect: Allow
+            Resource:
+              - !Sub arn:aws:logs:${AwsRegion}:${AwsAccountId}:log-group:/aws/batch/job
+          - Action:
+              - execute-api:Invoke
+              - execute-api:ManageConnections
+            Effect: Allow
+            Resource:
+              - !Sub arn:aws:execute-api:${AwsRegion}:${AwsAccountId}:*
+          - Action:
+              - dynamodb:DeleteItem
+              - dynamodb:CreateTableReplica
+              - dynamodb:UpdateGlobalTable
+              - dynamodb:DeleteTable
+              - dynamodb:UpdateTableReplicaAutoScaling
+              - dynamodb:DescribeTable
+              - dynamodb:PartiQLInsert
+              - dynamodb:GetItem
+              - dynamodb:CreateGlobalTable
+              - dynamodb:BatchGetItem
+              - dynamodb:BatchWriteItem
+              - dynamodb:PutItem
+              - dynamodb:PartiQLUpdate
+              - dynamodb:Scan
+              - dynamodb:Query
+              - dynamodb:DescribeStream
+              - dynamodb:UpdateItem
+              - dynamodb:DeleteTableReplica
+              - dynamodb:CreateTable
+              - dynamodb:UpdateTable
+              - dynamodb:GetRecords
+              - dynamodb:PartiQLDelete
+              - dynamodb:DescribeTableReplicaAutoScaling
+            Effect: Allow
+            Resource:
+              - !Sub arn:aws:dynamodb:${AwsRegion}:${AwsAccountId}:table/${EnvironmentId}-cobis-${Module}-sequentials_gt
+      Roles:
+        - Ref: JobRole
+
+  JobRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: sts:AssumeRole
+            Principal:
+              Service:
+                - ecs-tasks.amazonaws.com
+            Effect: Allow
+            Sid: ""
+      Path: /
+      RoleName: !Sub "${EnvironmentId}-${Module}-job-execution-role"
+      Tags:
+        - Key: "ORGANIZATION"
+          Value: !Ref Organization
+        - Key: "PACKAGE"
+          Value: !Ref Package
+        - Key: "VERSION"
+          Value: !Ref Version
+        - Key: "ENVIRONMENT_TYPE"
+          Value: !Ref EnvironmentType
+        - Key: "ENVIRONMENT_ID"
+          Value: !Ref EnvironmentId
+        - Key: "TENANT_ID"
+          Value: !Ref TenantId
+        - Key: "PROJECT"
+          Value: !Ref Project
+        - Key: "MODULE"
+          Value: !Ref Module
+        - Key: "PROCESSING_TYPE"
+          Value: "BATCH"
+
+  JobProcessingDefinition:
+    Type: AWS::Batch::JobDefinition
+    Properties:
+      Type: container
+      PlatformCapabilities:
+        - FARGATE
+      JobDefinitionName: !Sub ${EnvironmentId}-${Module}-job-execution-processing-definition
+      RetryStrategy:
+        Attempts: 1
+      Parameters: {}
+      ContainerProperties:
+        Command:
+          - sh
+          - entrypoint.sh
+        ReadonlyRootFilesystem: true
+        MountPoints:
+          - ReadOnly: false
+            SourceVolume: app
+            ContainerPath: /app
+        Volumes:
+          - Name: app
+        Secrets:
+          - Name: APP_DATASOURCE_MASTER_DATABASE
+            ValueFrom: !Sub "${MicroserviceSecretArn}:database::"
+          - Name: APP_DATASOURCE_MASTER_ENDPOINT
+            ValueFrom: !Sub "${MicroserviceSecretArn}:masterEndpoint::"
+          - Name: APP_DATASOURCE_MASTER_REPLICA_ENDPOINT
+            ValueFrom: !Sub "${MicroserviceSecretArn}:readReplicaEndpoint::"
+          - Name: APP_DATASOURCE_MASTER_PORT
+            ValueFrom: !Sub "${MicroserviceSecretArn}:masterPort::"
+          - Name: APP_DATASOURCE_MASTER_REPLICA_PORT
+            ValueFrom: !Sub "${MicroserviceSecretArn}:readReplicaPort::"
+          - Name: APP_DATASOURCE_MASTER_ARGUMENTS
+            ValueFrom: !Sub "${MicroserviceSecretArn}:arguments::"
+          - Name: AUTHENTICATION_CREDENTIALS_AUTHENTICATION_LOGIN
+            ValueFrom: !Sub "${MicroserviceAuthenticationSecretArn}:user::"
+          - Name: AUTHENTICATION_CREDENTIALS_AUTHENTICATION_PASSWORD
+            ValueFrom: !Sub "${MicroserviceAuthenticationSecretArn}:password::"
+          - Name: AUTHENTICATION_CREDENTIALS_SUBSIDIARY_CODE
+            ValueFrom: !Sub "${MicroserviceAuthenticationSecretArn}:subsidiary::"
+          - Name: AUTHENTICATION_CREDENTIALS_BRANCH_CODE
+            ValueFrom: !Sub "${MicroserviceAuthenticationSecretArn}:branch::"
+          - Name: AUTHENTICATION_CREDENTIALS_ROLE_CODE
+            ValueFrom: !Sub "${MicroserviceAuthenticationSecretArn}:role::"
+          - Name: AUTHENTICATION_ENDPOINT_URL
+            ValueFrom: !Sub "${MicroserviceAuthenticationSecretArn}:url::"
+          - Name: AUTHENTICATION_ENDPOINT_PATH
+            ValueFrom: !Sub "${MicroserviceAuthenticationSecretArn}:path::"
+          - Name: AUTHENTICATION_ENDPOINT_APIKEY
+            ValueFrom: !Sub "${MicroserviceAuthenticationSecretArn}:apiKey::"
+        Environment:
+          - Name: AUTHENTICATION_ENDPOINT_PATHOFFICIALUSERLOGIN
+            Value: !Ref AuthenticationPathLogin
+          - Name: AUTHENTICATION_ENDPOINT_PATHOFFICIALUSERROLE
+            Value: !Ref AuthenticationPathRole
+          - Name: AWS_REGION
+            Value: !Ref AwsRegion
+          - Name: AWS_POOLID
+            Value: !Ref AWSPOOLID
+          - Name: AWS_POOLIDAPP
+            Value: !Ref AWSPOOLIDAPP
+          - Name: TZ
+            Value: !Ref TimeZone
+          - Name: LOG_LEVEL
+            Value: !Ref LogLevel
+          - Name: ENVIRONMENT_PREFIX
+            Value: !Ref EnvironmentIdBase
+          - Name: PROCESS
+            Value: PROCESSJOB
+          - Name: SPRING_DATASOURCE_USERNAME
+            Value: !Ref SECRETMANAGERUSERNAME
+          - Name: spring.profiles.active
+            Value: !Ref profile
+          - Name: PROFILE
+            Value: !Ref profile
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_0_NAME
+            Value: !Ref ConnectionConfigName0
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_0_URL
+            Value: !Ref ConnectionConfigUrl0
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_0_PATH
+            Value: !Ref ConnectionConfigPath0
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_0_TIMEOUT
+            Value: !Ref ConnectionConfigTimeout0
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_0_APIKEY
+            Value: !Ref ConnectionConfigApikey0
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_1_NAME
+            Value: !Ref ConnectionConfigName1
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_1_URL
+            Value: !Ref ConnectionConfigUrl1
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_1_PATH
+            Value: !Ref ConnectionConfigPath1
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_1_TIMEOUT
+            Value: !Ref ConnectionConfigTimeout1
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_1_APIKEY
+            Value: !Ref ConnectionConfigApikey1
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_2_NAME
+            Value: !Ref ConnectionConfigName2
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_2_URL
+            Value: !Ref ConnectionConfigUrl2
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_2_PATH
+            Value: !Ref ConnectionConfigPath2
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_2_TIMEOUT
+            Value: !Ref ConnectionConfigTimeout2
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_2_APIKEY
+            Value: !Ref ConnectionConfigApikey2
+          - Name: INTEGRATION_ADMINCATALOGS_BASEURL
+            Value: !Ref integrationAdminCatalogsBaseUrl
+          - Name: INTEGRATION_ADMINCATALOGS_PATH
+            Value: !Ref integrationAdminCatalogsPath
+          - Name: INTEGRATION_ADMINCATALOGS_TIMEOUT
+            Value: !Ref integrationAdminCatalogsTimeout
+          - Name: INTEGRATION_DDA_BASEURL
+            Value: !Ref IntegrationDdaBaseUrl
+          - Name: INTEGRATION_DDATRANSACTIONAL_BASEURL
+            Value: !Ref IntegrationDdaTrnBaseUrl
+          - Name: INTEGRATION_DDA_APIKEY
+            Value: !Ref IntegrationDdaApikey
+          - Name: INTEGRATION_DDATRANSACTIONAL_APIKEY
+            Value: !Ref IntegrationDdaTrnApikey
+          - Name: INTEGRATION_LOANS_BASEURL
+            Value: !Ref IntegrationBaseLoanURL
+          - Name: INTEGRATION_LOANSPAYMENTS_BASEURL
+            Value: !Ref IntegrationBasePaymentLoanURL
+          - Name: INTEGRATION_LOANSTRANSACTIONAL_BASEURL
+            Value: !Ref IntegrationBaseTransactionalLoanURL
+          - Name: INTEGRATION_LOANS_APIKEY
+            Value: !Ref IntegrationLoanApikey
+          - Name: INTEGRATION_LOANSPAYMENTS_APIKEY
+            Value: !Ref IntegrationLoanPaymentsApikey
+          - Name: INTEGRATION_LOANSTRANSACTIONAL_APIKEY
+            Value: !Ref IntegrationLoanTransactionalApikey 
+          - Name: INTEGRATION_DDA_READTIMEOUT
+            Value: !Ref IntegrationDdaReadTimeout
+          - Name: INTEGRATION_DDA_CONNECTTIMEOUT
+            Value: !Ref IntegrationDdaConnectTimeout
+          - Name: INTEGRATION_LOAN_READTIMEOUT
+            Value: !Ref IntegrationLoanReadTimeout
+          - Name: INTEGRATION_LOAN_CONNECTTIMEOUT
+            Value: !Ref IntegrationLoanConnectTimeout
+          - Name: ACH_SQLTIMEOUT
+            Value: !Ref AchSqlTimeout
+        JobRoleArn: !GetAtt JobRole.Arn
+        ExecutionRoleArn: !GetAtt JobRole.Arn
+        ResourceRequirements:
+          - Type: VCPU
+            Value: !Ref BatchVcpu
+          - Type: MEMORY
+            Value: !Ref BatchMemory
+        FargatePlatformConfiguration:
+          PlatformVersion: 1.4.0
+        Image: !Sub ${DockerEcrRepositoryUrl}:${DockerTag}
+      Tags:
+          {
+            "ORGANIZATION": !Ref Organization,
+            "PACKAGE": !Ref Package,
+            "VERSION": !Ref Version,
+            "ENVIRONMENT_TYPE": !Ref EnvironmentType,
+            "ENVIRONMENT_ID": !Ref EnvironmentId,
+            "TENANT_ID": !Ref TenantId,
+            "PROJECT": !Ref Project,
+            "MODULE": !Ref Module,
+            "PROCESSING_TYPE": "BATCH",
+          }
+
+  JobACHDefinition:
+    Type: AWS::Batch::JobDefinition
+    Properties:
+      Type: container
+      PlatformCapabilities:
+        - FARGATE
+      JobDefinitionName: !Sub ${EnvironmentId}-${Module}-job-execution-jobach-definition
+      RetryStrategy:
+        Attempts: 1
+      Parameters: {}
+      ContainerProperties:
+        Command:
+          - sh
+          - entrypoint.sh
+        ReadonlyRootFilesystem: true
+        MountPoints:
+          - ReadOnly: false
+            SourceVolume: tmp
+            ContainerPath: /tmp
+        Volumes:
+          - Name: tmp
+        Secrets:
+          - Name: APP_DATASOURCE_MASTER_DATABASE
+            ValueFrom: !Sub "${MicroserviceSecretArn}:database::"
+          - Name: APP_DATASOURCE_MASTER_ENDPOINT
+            ValueFrom: !Sub "${MicroserviceSecretArn}:masterEndpoint::"
+          - Name: APP_DATASOURCE_MASTER_REPLICA_ENDPOINT
+            ValueFrom: !Sub "${MicroserviceSecretArn}:readReplicaEndpoint::"
+          - Name: APP_DATASOURCE_MASTER_PORT
+            ValueFrom: !Sub "${MicroserviceSecretArn}:masterPort::"
+          - Name: APP_DATASOURCE_MASTER_REPLICA_PORT
+            ValueFrom: !Sub "${MicroserviceSecretArn}:readReplicaPort::"
+          - Name: APP_DATASOURCE_MASTER_ARGUMENTS
+            ValueFrom: !Sub "${MicroserviceSecretArn}:arguments::"
+          - Name: AUTHENTICATION_CREDENTIALS_AUTHENTICATION_LOGIN
+            ValueFrom: !Sub "${MicroserviceAuthenticationSecretArn}:user::"
+          - Name: AUTHENTICATION_CREDENTIALS_AUTHENTICATION_PASSWORD
+            ValueFrom: !Sub "${MicroserviceAuthenticationSecretArn}:password::"
+          - Name: AUTHENTICATION_CREDENTIALS_SUBSIDIARY_CODE
+            ValueFrom: !Sub "${MicroserviceAuthenticationSecretArn}:subsidiary::"
+          - Name: AUTHENTICATION_CREDENTIALS_BRANCH_CODE
+            ValueFrom: !Sub "${MicroserviceAuthenticationSecretArn}:branch::"
+          - Name: AUTHENTICATION_CREDENTIALS_ROLE_CODE
+            ValueFrom: !Sub "${MicroserviceAuthenticationSecretArn}:role::"
+          - Name: AUTHENTICATION_ENDPOINT_URL
+            ValueFrom: !Sub "${MicroserviceAuthenticationSecretArn}:url::"
+          - Name: AUTHENTICATION_ENDPOINT_PATH
+            ValueFrom: !Sub "${MicroserviceAuthenticationSecretArn}:path::"
+          - Name: AUTHENTICATION_ENDPOINT_APIKEY
+            ValueFrom: !Sub "${MicroserviceAuthenticationSecretArn}:apiKey::"
+        Environment:
+          - Name: AUTHENTICATION_ENDPOINT_PATHOFFICIALUSERLOGIN
+            Value: !Ref AuthenticationPathLogin
+          - Name: AUTHENTICATION_ENDPOINT_PATHOFFICIALUSERROLE
+            Value: !Ref AuthenticationPathRole
+          - Name: AWS_REGION
+            Value: !Ref AwsRegion
+          - Name: AWS_POOLID
+            Value: !Ref AWSPOOLID
+          - Name: AWS_POOLIDAPP
+            Value: !Ref AWSPOOLIDAPP
+          - Name: TZ
+            Value: !Ref TimeZone
+          - Name: LOG_LEVEL
+            Value: !Ref LogLevel
+          - Name: ENVIRONMENT_PREFIX
+            Value: !Ref EnvironmentIdBase
+          - Name: PROCESS
+            Value: JOBACH
+          - Name: SPRING_DATASOURCE_USERNAME
+            Value: !Ref SECRETMANAGERUSERNAME
+          - Name: spring.profiles.active
+            Value: !Ref profile
+          - Name: PROFILE
+            Value: !Ref profile
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_0_NAME
+            Value: !Ref ConnectionConfigName0
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_0_URL
+            Value: !Ref ConnectionConfigUrl0
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_0_PATH
+            Value: !Ref ConnectionConfigPath0
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_0_TIMEOUT
+            Value: !Ref ConnectionConfigTimeout0
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_0_APIKEY
+            Value: !Ref ConnectionConfigApikey0
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_1_NAME
+            Value: !Ref ConnectionConfigName1
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_1_URL
+            Value: !Ref ConnectionConfigUrl1
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_1_PATH
+            Value: !Ref ConnectionConfigPath1
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_1_TIMEOUT
+            Value: !Ref ConnectionConfigTimeout1
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_1_APIKEY
+            Value: !Ref ConnectionConfigApikey1
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_2_NAME
+            Value: !Ref ConnectionConfigName2
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_2_URL
+            Value: !Ref ConnectionConfigUrl2
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_2_PATH
+            Value: !Ref ConnectionConfigPath2
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_2_TIMEOUT
+            Value: !Ref ConnectionConfigTimeout2
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_2_APIKEY
+            Value: !Ref ConnectionConfigApikey2
+          - Name: INTEGRATION_ADMINCATALOGS_BASEURL
+            Value: !Ref integrationAdminCatalogsBaseUrl
+          - Name: INTEGRATION_ADMINCATALOGS_PATH
+            Value: !Ref integrationAdminCatalogsPath
+          - Name: INTEGRATION_ADMINCATALOGS_TIMEOUT
+            Value: !Ref integrationAdminCatalogsTimeout
+          - Name: INTEGRATION_DDA_BASEURL
+            Value: !Ref IntegrationDdaBaseUrl
+          - Name: INTEGRATION_DDATRANSACTIONAL_BASEURL
+            Value: !Ref IntegrationDdaTrnBaseUrl
+          - Name: INTEGRATION_DDA_APIKEY
+            Value: !Ref IntegrationDdaApikey
+          - Name: INTEGRATION_DDATRANSACTIONAL_APIKEY
+            Value: !Ref IntegrationDdaTrnApikey
+          - Name: INTEGRATION_LOANS_BASEURL
+            Value: !Ref IntegrationBaseLoanURL
+          - Name: INTEGRATION_LOANSPAYMENTS_BASEURL
+            Value: !Ref IntegrationBasePaymentLoanURL
+          - Name: INTEGRATION_LOANSTRANSACTIONAL_BASEURL
+            Value: !Ref IntegrationBaseTransactionalLoanURL
+          - Name: INTEGRATION_LOANS_APIKEY
+            Value: !Ref IntegrationLoanApikey
+          - Name: INTEGRATION_LOANSPAYMENTS_APIKEY
+            Value: !Ref IntegrationLoanPaymentsApikey
+          - Name: INTEGRATION_LOANSTRANSACTIONAL_APIKEY
+            Value: !Ref IntegrationLoanTransactionalApikey
+          - Name: INTEGRATION_DDA_READTIMEOUT
+            Value: !Ref IntegrationDdaReadTimeout
+          - Name: INTEGRATION_DDA_CONNECTTIMEOUT
+            Value: !Ref IntegrationDdaConnectTimeout
+          - Name: INTEGRATION_LOAN_READTIMEOUT
+            Value: !Ref IntegrationLoanReadTimeout
+          - Name: INTEGRATION_LOAN_CONNECTTIMEOUT
+            Value: !Ref IntegrationLoanConnectTimeout
+          - Name: ACH_SQLTIMEOUT
+            Value: !Ref AchSqlTimeout
+        JobRoleArn: !GetAtt JobRole.Arn
+        ExecutionRoleArn: !GetAtt JobRole.Arn
+        ResourceRequirements:
+          - Type: VCPU
+            Value: !Ref BatchVcpu
+          - Type: MEMORY
+            Value: !Ref BatchMemory
+        FargatePlatformConfiguration:
+          PlatformVersion: 1.4.0
+        Image: !Sub ${DockerEcrRepositoryUrl}:${DockerTag}
+      Tags:
+        {
+          "ORGANIZATION": !Ref Organization,
+          "PACKAGE": !Ref Package,
+          "VERSION": !Ref Version,
+          "ENVIRONMENT_TYPE": !Ref EnvironmentType,
+          "ENVIRONMENT_ID": !Ref EnvironmentId,
+          "TENANT_ID": !Ref TenantId,
+          "PROJECT": !Ref Project,
+          "MODULE": !Ref Module,
+          "PROCESSING_TYPE": "BATCH",
+        }
+
+  CreateTmpDefinition:
+    Type: AWS::Batch::JobDefinition
+    Properties:
+      Type: container
+      PlatformCapabilities:
+        - FARGATE
+      JobDefinitionName: !Sub ${EnvironmentId}-${Module}-job-execution-createTmp-definition
+      RetryStrategy:
+        Attempts: 1
+      Parameters: {}
+      ContainerProperties:
+        Command:
+          - sh
+          - entrypoint.sh
+        ReadonlyRootFilesystem: true
+        MountPoints:
+          - ReadOnly: false
+            SourceVolume: tmp
+            ContainerPath: /tmp
+        Volumes:
+          - Name: tmp
+        Secrets:
+          - Name: APP_DATASOURCE_MASTER_DATABASE
+            ValueFrom: !Sub "${MicroserviceSecretArn}:database::"
+          - Name: APP_DATASOURCE_MASTER_ENDPOINT
+            ValueFrom: !Sub "${MicroserviceSecretArn}:masterEndpoint::"
+          - Name: APP_DATASOURCE_MASTER_REPLICA_ENDPOINT
+            ValueFrom: !Sub "${MicroserviceSecretArn}:readReplicaEndpoint::"
+          - Name: APP_DATASOURCE_MASTER_PORT
+            ValueFrom: !Sub "${MicroserviceSecretArn}:masterPort::"
+          - Name: APP_DATASOURCE_MASTER_REPLICA_PORT
+            ValueFrom: !Sub "${MicroserviceSecretArn}:readReplicaPort::"
+          - Name: APP_DATASOURCE_MASTER_ARGUMENTS
+            ValueFrom: !Sub "${MicroserviceSecretArn}:arguments::"
+          - Name: AUTHENTICATION_CREDENTIALS_AUTHENTICATION_LOGIN
+            ValueFrom: !Sub "${MicroserviceAuthenticationSecretArn}:user::"
+          - Name: AUTHENTICATION_CREDENTIALS_AUTHENTICATION_PASSWORD
+            ValueFrom: !Sub "${MicroserviceAuthenticationSecretArn}:password::"
+          - Name: AUTHENTICATION_CREDENTIALS_SUBSIDIARY_CODE
+            ValueFrom: !Sub "${MicroserviceAuthenticationSecretArn}:subsidiary::"
+          - Name: AUTHENTICATION_CREDENTIALS_BRANCH_CODE
+            ValueFrom: !Sub "${MicroserviceAuthenticationSecretArn}:branch::"
+          - Name: AUTHENTICATION_CREDENTIALS_ROLE_CODE
+            ValueFrom: !Sub "${MicroserviceAuthenticationSecretArn}:role::"
+          - Name: AUTHENTICATION_ENDPOINT_URL
+            ValueFrom: !Sub "${MicroserviceAuthenticationSecretArn}:url::"
+          - Name: AUTHENTICATION_ENDPOINT_PATH
+            ValueFrom: !Sub "${MicroserviceAuthenticationSecretArn}:path::"
+          - Name: AUTHENTICATION_ENDPOINT_APIKEY
+            ValueFrom: !Sub "${MicroserviceAuthenticationSecretArn}:apiKey::"
+        Environment:
+          - Name: AUTHENTICATION_ENDPOINT_PATHOFFICIALUSERLOGIN
+            Value: !Ref AuthenticationPathLogin
+          - Name: AUTHENTICATION_ENDPOINT_PATHOFFICIALUSERROLE
+            Value: !Ref AuthenticationPathRole
+          - Name: AWS_REGION
+            Value: !Ref AwsRegion
+          - Name: AWS_POOLID
+            Value: !Ref AWSPOOLID
+          - Name: AWS_POOLIDAPP
+            Value: !Ref AWSPOOLIDAPP
+          - Name: TZ
+            Value: !Ref TimeZone
+          - Name: LOG_LEVEL
+            Value: !Ref LogLevel
+          - Name: ENVIRONMENT_PREFIX
+            Value: !Ref EnvironmentIdBase
+          - Name: PROCESS
+            Value: CREATETMP
+          - Name: SPRING_DATASOURCE_USERNAME
+            Value: !Ref SECRETMANAGERUSERNAME
+          - Name: spring.profiles.active
+            Value: !Ref profile
+          - Name: PROFILE
+            Value: !Ref profile
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_0_NAME
+            Value: !Ref ConnectionConfigName0
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_0_URL
+            Value: !Ref ConnectionConfigUrl0
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_0_PATH
+            Value: !Ref ConnectionConfigPath0
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_0_TIMEOUT
+            Value: !Ref ConnectionConfigTimeout0
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_0_APIKEY
+            Value: !Ref ConnectionConfigApikey0
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_1_NAME
+            Value: !Ref ConnectionConfigName1
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_1_URL
+            Value: !Ref ConnectionConfigUrl1
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_1_PATH
+            Value: !Ref ConnectionConfigPath1
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_1_TIMEOUT
+            Value: !Ref ConnectionConfigTimeout1
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_1_APIKEY
+            Value: !Ref ConnectionConfigApikey1
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_2_NAME
+            Value: !Ref ConnectionConfigName2
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_2_URL
+            Value: !Ref ConnectionConfigUrl2
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_2_PATH
+            Value: !Ref ConnectionConfigPath2
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_2_TIMEOUT
+            Value: !Ref ConnectionConfigTimeout2
+          - Name: COBIS_RESTRPC_CONNECTIONCONFIG_2_APIKEY
+            Value: !Ref ConnectionConfigApikey2
+          - Name: INTEGRATION_ADMINCATALOGS_BASEURL
+            Value: !Ref integrationAdminCatalogsBaseUrl
+          - Name: INTEGRATION_ADMINCATALOGS_PATH
+            Value: !Ref integrationAdminCatalogsPath
+          - Name: INTEGRATION_ADMINCATALOGS_TIMEOUT
+            Value: !Ref integrationAdminCatalogsTimeout
+          - Name: INTEGRATION_DDA_BASEURL
+            Value: !Ref IntegrationDdaBaseUrl
+          - Name: INTEGRATION_DDATRANSACTIONAL_BASEURL
+            Value: !Ref IntegrationDdaTrnBaseUrl
+          - Name: INTEGRATION_DDA_APIKEY
+            Value: !Ref IntegrationDdaApikey
+          - Name: INTEGRATION_DDATRANSACTIONAL_APIKEY
+            Value: !Ref IntegrationDdaTrnApikey
+          - Name: INTEGRATION_LOANS_BASEURL
+            Value: !Ref IntegrationBaseLoanURL
+          - Name: INTEGRATION_LOANSPAYMENTS_BASEURL
+            Value: !Ref IntegrationBasePaymentLoanURL
+          - Name: INTEGRATION_LOANSTRANSACTIONAL_BASEURL
+            Value: !Ref IntegrationBaseTransactionalLoanURL
+          - Name: INTEGRATION_LOANS_APIKEY
+            Value: !Ref IntegrationLoanApikey
+          - Name: INTEGRATION_LOANSPAYMENTS_APIKEY
+            Value: !Ref IntegrationLoanPaymentsApikey
+          - Name: INTEGRATION_LOANSTRANSACTIONAL_APIKEY
+            Value: !Ref IntegrationLoanTransactionalApikey
+          - Name: INTEGRATION_DDA_READTIMEOUT
+            Value: !Ref IntegrationDdaReadTimeout
+          - Name: INTEGRATION_DDA_CONNECTTIMEOUT
+            Value: !Ref IntegrationDdaConnectTimeout
+          - Name: INTEGRATION_LOAN_READTIMEOUT
+            Value: !Ref IntegrationLoanReadTimeout
+          - Name: INTEGRATION_LOAN_CONNECTTIMEOUT
+            Value: !Ref IntegrationLoanConnectTimeout
+          - Name: ACH_SQLTIMEOUT
+            Value: !Ref AchSqlTimeout
+        JobRoleArn: !GetAtt JobRole.Arn
+        ExecutionRoleArn: !GetAtt JobRole.Arn
+        ResourceRequirements:
+          - Type: VCPU
+            Value: !Ref BatchVcpu
+          - Type: MEMORY
+            Value: !Ref BatchMemory
+        FargatePlatformConfiguration:
+          PlatformVersion: 1.4.0
+        Image: !Sub ${DockerEcrRepositoryUrl}:${DockerTag}
+      Tags:
+        {
+          "ORGANIZATION": !Ref Organization,
+          "PACKAGE": !Ref Package,
+          "VERSION": !Ref Version,
+          "ENVIRONMENT_TYPE": !Ref EnvironmentType,
+          "ENVIRONMENT_ID": !Ref EnvironmentId,
+          "TENANT_ID": !Ref TenantId,
+          "PROJECT": !Ref Project,
+          "MODULE": !Ref Module,
+          "PROCESSING_TYPE": "BATCH",
+        }
+
+  RuleEventPolicy:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyName: !Sub "${EnvironmentId}-${Module}-job-execution-rule-policy"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action:
+              - batch:SubmitJob
+            Effect: Allow
+            Resource:
+              - !Sub "arn:aws:batch:${AwsRegion}:${AwsAccountId}:job-definition/${EnvironmentId}-${Module}-job-execution-processing-definition"
+              - !Sub "arn:aws:batch:${AwsRegion}:${AwsAccountId}:job-definition/${EnvironmentId}-${Module}-job-execution-jobach-definition"
+              - !Sub "arn:aws:batch:${AwsRegion}:${AwsAccountId}:job-definition/${EnvironmentId}-${Module}-job-execution-createTmp-definition"
+              - !Ref ACHJobQueue
+      Roles:
+        - Ref: RuleEventRole
+
+  RuleEventRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action: sts:AssumeRole
+            Principal:
+              Service:
+                - events.amazonaws.com
+            Effect: Allow
+            Sid: ""
+      Path: /
+      RoleName: !Sub "${EnvironmentId}-${Module}-job-execution-rule-role"
+      Tags:
+        - Key: "ORGANIZATION"
+          Value: !Ref Organization
+        - Key: "PACKAGE"
+          Value: !Ref Package
+        - Key: "VERSION"
+          Value: !Ref Version
+        - Key: "ENVIRONMENT_TYPE"
+          Value: !Ref EnvironmentType
+        - Key: "ENVIRONMENT_ID"
+          Value: !Ref EnvironmentId
+        - Key: "TENANT_ID"
+          Value: !Ref TenantId
+        - Key: "PROJECT"
+          Value: !Ref Project
+        - Key: "MODULE"
+          Value: !Ref Module
+        - Key: "PROCESSING_TYPE"
+          Value: "BATCH"
+
+  ProcessJobEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Execute Job when it need to call ReceiverProcessBatch orchestation
+      ScheduleExpression: "cron(0/2 * * * ? *)"
+      Name: !Sub "${EnvironmentId}-${Module}-job-execution-processing-event-rule"
+      Targets:
+        - Id: ProcessJobEvent
+          Arn: !GetAtt ACHJobLambda.Arn #arn:aws:lambda:us-east-1:681989517074:function:handlerTest
+          InputTransformer:
+            InputTemplate: !Sub
+              - |
+                {
+                   "JobDefinicionName": "${EnvironmentId}-${Module}-job-execution-processing-definition",
+                   "EnvironmentQueue" : "${EnvironmentId}-${Module}-job-execution-compute-queue",
+                   "JobName" : "ProcessJob"
+                }
+              - EnvironmentId: !Ref EnvironmentId
+                Module: !Ref Module
+
+
+  JobACHEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Execute Job when it need to call JobACH orchestation
+      ScheduleExpression: "cron(0/5 * * * ? *)"
+      Name: !Sub "${EnvironmentId}-${Module}-job-execution-jobach-event-rule"
+      Targets:
+        - Id: JobACHEvent
+          Arn: !GetAtt ACHJobLambda.Arn #!Ref ACHJobQueue
+          InputTransformer:
+            InputTemplate: !Sub
+              - |
+                {
+                   "JobDefinicionName": "${EnvironmentId}-${Module}-job-execution-jobach-definition",
+                   "EnvironmentQueue" : "${EnvironmentId}-${Module}-job-execution-compute-queue",
+                   "JobName" : "JobACH"
+                }
+              - EnvironmentId: !Ref EnvironmentId
+                Module: !Ref Module
+
+  CreateTmpEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Execute Job when it need to call CreateTmp orchestation
+      ScheduleExpression: "cron(0/5 * * * ? *)"
+      Name: !Sub "${EnvironmentId}-${Module}-job-execution-createTmp-event-rule"
+      Targets:
+        - Id: JobACHEvent
+          Arn: !GetAtt ACHJobLambda.Arn #!Ref ACHJobQueue
+          InputTransformer:
+            InputTemplate: !Sub
+              - |
+                {
+                   "JobDefinicionName": "${EnvironmentId}-${Module}-job-execution-createTmp-definition",
+                   "EnvironmentQueue" : "${EnvironmentId}-${Module}-job-execution-compute-queue",
+                   "JobName" : "CreateOrderTmp" 
+                }
+              - EnvironmentId: !Ref EnvironmentId
+                Module: !Ref Module
+
+  ACHJobLambda:
+    DependsOn: "AchJobLambdaRole"
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Join
+        - ""
+        - - !Ref EnvironmentId
+          - "-AchJobLamda"
+      Handler: com.cobiscorp.ecobis.ach.processing.lambda.JobACHExecutorLambda::handleRequest
+      CodeUri: bis-ach-service-microservice/target/cobis-ach-job-processing-lambda.jar #PROCESSING/cobis-ach-job-processing-lambda/target/cobis-ach-job-processing-lambda.jar
+      Role: !GetAtt AchJobLambdaRole.Arn
+      Timeout: 19
+      Architectures:
+        - arm64
+      MemorySize: 512
+      Runtime: java8.al2
+      Tracing: Active
+      VpcConfig:
+        SecurityGroupIds: [ !Ref SecurityGroupIds ]
+        SubnetIds: !Ref SubnetIds
+      Environment:
+        Variables:
+          LOAD_BALANCER_URL: !Ref LoadBalancerUrl
+          LOAD_BALANCER_PORT: !Ref microServicePort
+          MICROSERVICE_AUTHENTICATION_SECRET_ARN: !Ref MicroserviceAuthenticationSecretArn
+          LOG_LEVEL: !Select [6, !Split [":", !Ref AchBatchUpdatingLambdaConfiguration]] #set nivel d log info, trace, debug
+          TZ: !Ref TimeZone
+          REGION: !Ref AwsRegion
+          
+      Tags:
+        ORGANIZATION: !Ref Organization
+        PACKAGE: !Ref Package
+        VERSION: !Ref Version
+        ENVIRONMENT_TYPE: !Ref EnvironmentType
+        ENVIRONMENT_ID: !Ref EnvironmentId
+        TENANT_ID: !Ref TenantId
+        PROJECT: !Ref Project
+        MODULE: !Ref Module
+        PROCESSING_TYPE: !Ref ProcessingType
+
+  AchExecutorLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${ACHJobLambda}
+      RetentionInDays: !Ref LogRetentionDays
+      Tags:
+        - Key: "ORGANIZATION"
+          Value: !Ref Organization
+        - Key: "PACKAGE"
+          Value: !Ref Package
+        - Key: "VERSION"
+          Value: !Ref Version
+        - Key: "ENVIRONMENT_TYPE"
+          Value: !Ref EnvironmentType
+        - Key: "ENVIRONMENT_ID"
+          Value: !Ref EnvironmentId
+        - Key: "TENANT_ID"
+          Value: !Ref TenantId
+        - Key: "PROJECT"
+          Value: !Ref Project
+        - Key: "MODULE"
+          Value: !Ref Module
+        - Key: "PROCESSING_TYPE"
+          Value: "BATCH"
+
+  ProcessJobLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ACHJobLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt ProcessJobEventRule.Arn
+
+  JobACHLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ACHJobLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt JobACHEventRule.Arn
+
+  CreateTmpLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt ACHJobLambda.Arn
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt CreateTmpEventRule.Arn
+
+  AchJobLambdaRole:
+    Type: "AWS::IAM::Role"
+    DependsOn:
+      - JobProcessingDefinition
+      - JobACHDefinition
+    Properties:
+      RoleName: !Join
+        - ""
+        - - !Ref EnvironmentId
+          - "-AchJob-Updating-Role"
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - "sts:AssumeRole"
+      Path: /
+      Policies:
+        - PolicyName: !Sub "${EnvironmentId}-policy_allows_getsecretvalue"
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Join
+                  - ""
+                  - - "arn:aws:logs:us-east-1:"
+                    - !Sub "${AwsAccountId}:"
+                    - "log-group:/aws/lambda/"
+                    - !Ref EnvironmentId
+                    - "-AchJobLamda"
+              - Effect: Allow
+                Action:
+                  - secretsmanager:DescribeSecret
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:ListSecrets
+                Resource: !Ref MicroserviceSecretArn
+              - Effect: Allow
+                Action:
+                  - batch:SubmitJob
+                Resource:
+                  - !Sub "arn:aws:batch:${AwsRegion}:${AwsAccountId}:job-definition/${EnvironmentId}-${Module}-job-execution-processing-definition"
+                  - !Sub "arn:aws:batch:${AwsRegion}:${AwsAccountId}:job-definition/${EnvironmentId}-${Module}-job-execution-jobach-definition"
+                  - !Sub "arn:aws:batch:${AwsRegion}:${AwsAccountId}:job-definition/${EnvironmentId}-${Module}-job-execution-createTmp-definition"
+                  - !Ref ACHJobQueue
+      Tags:
+        - Key: "ORGANIZATION"
+          Value: !Ref Organization
+        - Key: "PACKAGE"
+          Value: !Ref Package
+        - Key: "VERSION"
+          Value: !Ref Version
+        - Key: "ENVIRONMENT_TYPE"
+          Value: !Ref EnvironmentType
+        - Key: "ENVIRONMENT_ID"
+          Value: !Ref EnvironmentId
+        - Key: "TENANT_ID"
+          Value: !Ref TenantId
+        - Key: "PROJECT"
+          Value: !Ref Project
+        - Key: "MODULE"
+          Value: !Ref Module
+        - Key: "PROCESSING_TYPE"
+          Value: !Ref ProcessingType
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess"
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+        - "arn:aws:iam::aws:policy/AWSXrayWriteOnlyAccess"
+        - "arn:aws:iam::aws:policy/SecretsManagerReadWrite"

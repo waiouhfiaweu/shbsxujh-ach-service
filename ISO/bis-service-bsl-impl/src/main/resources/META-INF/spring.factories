@@ -1,0 +1,2 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+    com.banistmo.service.bsl.serv.config.BisAutoConfiguration

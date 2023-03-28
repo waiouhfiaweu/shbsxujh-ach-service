@@ -1,0 +1,61 @@
+# pipeline
+
+parameters:
+- name: PROJECT_KEY
+  default: 'cobis-ach-service'
+- name: DEPLOY_CONFIG
+  default: 'ach-service-deploy'
+- name: JAVA_PROJECT_PATH
+  default: 'test/cobis-ach-api-integration-test'
+- name: POM_PATH
+  default: 'test/cobis-ach-api-integration-test'
+- name: DEVELOP_DEPLOY_VARIABLES
+  type: object
+  default:
+    AWS_DEFAULT_ACCOUNT: "681989517074"
+    AWS_DEFAULT_REGION: "us-east-1"
+    ENVIRONMENT: "dev1"
+    SECURE_FILE_PEM: "us-east-1.dev1.Cobiscorp.681989517074.pem"
+- name: QUALITY_DEPLOY_VARIABLES
+  type: object
+  default:
+    AWS_DEFAULT_ACCOUNT: "110595436954"
+    AWS_DEFAULT_REGION: "us-east-1"
+    ENVIRONMENT: "qa1"  
+    SECURE_FILE_PEM: "us-east-1.dev1.Cobiscorp.681989517074.pem"
+- name: STAGING_DEPLOY_VARIABLES
+  type: object
+  default:
+    AWS_DEFAULT_ACCOUNT: "471419321612"
+    AWS_DEFAULT_REGION: "us-east-1"
+    ENVIRONMENT: "stg1"   
+- name: PRODUCTION_DEPLOY_VARIABLES
+  type: object
+  default:
+    AWS_DEFAULT_ACCOUNT: "681989517074"
+    AWS_DEFAULT_REGION: "us-east-1"
+    ENVIRONMENT: "xxx"
+
+
+trigger:
+ branches:
+   include:
+     - 'develop'
+     - 'quality'
+     - 'staging'
+     - 'master'
+     - feature/*
+
+resources:
+  repositories:
+    - repository: templates
+      type: git #type of repository
+      name: cobis-cloud-devops
+      ref: refs/heads/feature/integrationTestTemplate
+
+stages:
+- template: azure/stages/templates/integrationTestTemplate.yml@templates
+  parameters:
+    PROJECT_KEY: '${{ parameters.PROJECT_KEY }}'
+    JAVA_PROJECT_PATH: '${{ parameters.JAVA_PROJECT_PATH }}'
+    SECURE_FILE_PEM: "us-east-1.dev1.Cobiscorp.681989517074.pem"
